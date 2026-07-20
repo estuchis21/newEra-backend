@@ -5,6 +5,7 @@ import {
 
 import { DatabaseService } from '../../database/database.service';
 import { CreateAlumnoDto } from '../dto/createalumno.dto';
+import { LoginDto } from '../dto/login.dto';
 
 
 @Injectable()
@@ -143,4 +144,31 @@ export class AlumnosRepository {
 
     }
   }
+
+async findByEmail(
+  dto: LoginDto
+){
+
+
+  const result =
+    await this.databaseService.query(
+
+      `
+      SELECT *
+      FROM users
+      WHERE email = $1
+      `,
+
+      [
+        dto.email
+      ]
+
+    );
+
+
+
+  return result.rows[0];
+
+}
+
 }
