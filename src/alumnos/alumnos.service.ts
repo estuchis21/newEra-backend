@@ -1,26 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { CreateAlumnoDto } from './dto/create-alumno.dto';
-import { UpdateAlumnoDto } from './dto/update-alumno.dto';
+import { AlumnosRepository } from './alumnos.repository/alumnos.repository';
+import { CreateAlumnoDto } from './dto/createalumno.dto';
+import bycrypt from 'bcrypt';
 
 @Injectable()
 export class AlumnosService {
-  create(createAlumnoDto: CreateAlumnoDto) {
-    return 'This action adds a new alumno';
+  constructor ( 
+    private readonly alumnosRepository: AlumnosRepository, 
+  ) {}
+
+  async RegistrarAlumno (
+    dto: CreateAlumnoDto
+  ){
+
+    const saltRounds = 10;
+    dto.usuario.contrasena =
+      await bycrypt.hash(
+        dto.usuario.contrasena,
+        saltRounds,
+      );
+
+      return this.alumnosRepository.createAlumno(dto);
   }
 
-  findAll() {
-    return `This action returns all alumnos`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} alumno`;
-  }
-
-  update(id: number, updateAlumnoDto: UpdateAlumnoDto) {
-    return `This action updates a #${id} alumno`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} alumno`;
-  }
 }
