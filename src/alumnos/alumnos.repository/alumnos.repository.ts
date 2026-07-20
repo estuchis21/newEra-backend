@@ -94,9 +94,7 @@ export class AlumnosRepository {
           )
           `,
           [
-
             // alumno_input
-
             dto.usuario.nombre,
             dto.usuario.apellido,
             dto.usuario.dni,
@@ -105,75 +103,44 @@ export class AlumnosRepository {
             dto.usuario.username,
             dto.usuario.celular,
             dto.usuario.id_rol,
-
-
             // alumnos_type
-
             esMenor
 
           ],
         );
-
-
       return resultado;
 
-
-
     } catch(error) {
-
-
 
       // DUPLICADOS DE POSTGRES
 
       if(error.code === '23505') {
-
-
-
         switch(error.constraint) {
-
-
-
           case 'users_username_key':
 
             throw new ConflictException(
               'El username ya está registrado'
             );
-
-
-
           case 'users_email_key':
 
             throw new ConflictException(
               'El correo electrónico ya está registrado'
             );
-
-
-
           case 'users_dni_key':
 
             throw new ConflictException(
               'El DNI ya está registrado'
             );
 
-
-
           default:
 
             throw new ConflictException(
               'El dato ingresado ya existe'
             );
-
         }
-
-
       }
-
-
-
       throw error;
 
     }
-
   }
-
 }
