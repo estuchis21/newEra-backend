@@ -145,30 +145,24 @@ export class AlumnosRepository {
     }
   }
 
-async findByEmail(
-  dto: LoginDto
-){
+async findByEmail(dto: LoginDto){
+
+  const result = await this.databaseService.query(
+    `
+      SELECT * FROM findByEmail($1)
+    `,
+    [
+      dto.email
+    ]
+  );
 
 
-  const result =
-    await this.databaseService.query(
-
-      `
-      SELECT *
-      FROM users
-      WHERE email = $1
-      `,
-
-      [
-        dto.email
-      ]
-
-    );
-
+  if(result.rows.length === 0){
+    throw new Error('Usuario no encontrado');
+  }
 
 
   return result.rows[0];
 
 }
-
 }
