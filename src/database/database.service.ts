@@ -1,102 +1,80 @@
 import {
-    Injectable,
-    OnModuleDestroy,
-    OnModuleInit
+  Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
 } from '@nestjs/common';
 
 import { Pool } from 'pg';
-
 import { ConfigService } from '@nestjs/config';
 
 
 @Injectable()
-export class DatabaseService
-implements OnModuleInit, OnModuleDestroy{
+export class DatabaseService 
+implements OnModuleInit, OnModuleDestroy {
+
+  private pool: Pool;
 
 
-private pool:Pool;
+  constructor(
+    private readonly config: ConfigService,
+  ) {
+
+    this.pool = new Pool({
+
+      host: this.config.get<string>('database.host'),
+
+      port: this.config.get<number>('database.port'),
+
+      database: this.config.get<string>('database.database'),
+
+      user: this.config.get<string>('database.user'),
+
+      password: this.config.get<string>('database.password'),
+
+      max: this.config.get<number>('database.max'),
+
+    });
+
+  }
 
 
+  async onModuleInit() {
 
-constructor(
- private config:ConfigService
-){
+    await this.pool.query(
+      'SELECT NOW()'
+    );
 
+    console.log(
+      'PostgreSQL conectado'
+    );
 
-this.pool = new Pool({
-
-host:this.config.get(
-'database.host'
-),
-
-port:this.config.get(
-'database.port'
-),
-
-database:this.config.get(
-'database.database'
-),
-
-user:this.config.get(
-'database.user'
-),
-
-password:this.config.get(
-'database.password'
-),
-
-max:this.config.get(
-'database.max'
-)
-
-});
+  }
 
 
-}
+  async query(
+    sql: string,
+    params?: any[],
+  ) {
+
+    return this.pool.query(
+      sql,
+      params,
+    );
+
+  }
 
 
+  async getConnection() {
 
-async onModuleInit(){
+    return this.pool.connect();
 
-await this.pool.query(
-'SELECT NOW()'
-);
-
-console.log(
-'PostgreSQL conectado'
-);
-
-}
+  }
 
 
+  async onModuleDestroy() {
 
-query(
-sql:string,
-params?:any[]
-){
+    await this.pool.end();
 
-return this.pool.query(
-sql,
-params
-);
-
-}
-
-
-
-getConnection(){
-
-return this.pool.connect();
-
-}
-
-
-
-async onModuleDestroy(){
-
-await this.pool.end();
-
-}
-
+  }
 
 }

@@ -30,15 +30,11 @@ import { MercadopagoModule } from './integrations/mercadopago/mercadopago.module
 imports: [
 
 ConfigModule.forRoot({
-
-isGlobal:true,
-
-load:[
- databaseConfig
-]
-
+  isGlobal:true,
+  load:[
+    databaseConfig
+  ]
 }),
-
 
 DatabaseModule,
 
