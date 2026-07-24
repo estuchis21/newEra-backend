@@ -9,7 +9,6 @@ import { DatabaseModule } from './database/database.module';
 
 import { AlumnosModule } from './alumnos/alumnos.module';
 import { AsistenciasModule } from './asistencias/asistencias.module';
-import { AuthModule } from './auth/auth.module';
 import { BoletinesModule } from './boletines/boletines.module';
 import { ClasesModule } from './clases/clases.module';
 import { CuotasModule } from './cuotas/cuotas.module';
@@ -20,7 +19,6 @@ import { InscripcionesModule } from './inscripciones/inscripciones.module';
 import { PagosModule } from './pagos/pagos.module';
 import { ProfesoresModule } from './profesores/profesores.module';
 import { RetiroMenoresModule } from './retiro-menores/retiro-menores.module';
-import { UsersModule } from './users/users.module';
 
 import { MercadopagoModule } from './integrations/mercadopago/mercadopago.module';
 
@@ -39,8 +37,6 @@ ConfigModule.forRoot({
 DatabaseModule,
 
 AlumnosModule,
-AuthModule,
-UsersModule,
 ProfesoresModule,
 DisciplinasModule,
 GruposModule,
