@@ -71,6 +71,14 @@ export class DisciplinasService {
 
     }
 
+    async obtenerDisciplinas(){
+
+        const disciplinas =
+            await this.disciplinasRepository.obtenerTodas();
+    
+        return disciplinas;
+    }
+
 
     async obtenerDisciplina(
         id_disciplina: number

@@ -22,7 +22,7 @@ export class DisciplinasRepository {
         );
 
 
-        return result.rows[0];
+        return result.rows;
 
     }
 
@@ -59,4 +59,20 @@ export class DisciplinasRepository {
         return result.rows[0].existe;
 
     }
+
+    async obtenerTodas(){
+
+        const result =
+        await this.databaseService.query(
+            `
+            SELECT *
+            FROM obtenerDisciplinas
+            `
+        );
+
+
+        return result.rows;
+
+    }
+
 }

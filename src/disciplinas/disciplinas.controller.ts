@@ -35,4 +35,9 @@ export class DisciplinasController {
     );
   }
 
+  @Get()
+  async obtenerDisciplinas(){
+    return this.disciplinasService.obtenerDisciplinas();
+  }
+
 }
