@@ -66,7 +66,7 @@ export class DisciplinasRepository {
         await this.databaseService.query(
             `
             SELECT *
-            FROM obtenerDisciplinas
+            FROM obtenerDisciplinas()
             `
         );
 

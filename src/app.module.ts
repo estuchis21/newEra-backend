@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -16,50 +17,50 @@ import { DisciplinasModule } from './disciplinas/disciplinas.module';
 import { GruposModule } from './grupos/grupos.module';
 import { HorariosModule } from './horarios/horarios.module';
 import { InscripcionesModule } from './inscripciones/inscripciones.module';
-import { PagosModule } from './pagos/pagos.module';
+import { PagosModule } from './pagos/pagos.module'
 import { ProfesoresModule } from './profesores/profesores.module';
 import { RetiroMenoresModule } from './retiro-menores/retiro-menores.module';
 
 import { MercadopagoModule } from './integrations/mercadopago/mercadopago.module';
 
-
 @Module({
 
-imports: [
+    imports: [
 
-ConfigModule.forRoot({
-  isGlobal:true,
-  load:[
-    databaseConfig
-  ]
-}),
+        ConfigModule.forRoot({
+            isGlobal: true,
 
-DatabaseModule,
+            load: [
+                databaseConfig,
+            ],
+        }),
 
-AlumnosModule,
-ProfesoresModule,
-DisciplinasModule,
-GruposModule,
-HorariosModule,
-InscripcionesModule,
-ClasesModule,
-AsistenciasModule,
-BoletinesModule,
-CuotasModule,
-PagosModule,
-RetiroMenoresModule,
+        ScheduleModule.forRoot(),
 
-MercadopagoModule
+        DatabaseModule,
 
-],
+        AlumnosModule,
+        ProfesoresModule,
+        DisciplinasModule,
+        GruposModule,
+        HorariosModule,
+        InscripcionesModule,
+        ClasesModule,
+        AsistenciasModule,
+        BoletinesModule,
+        CuotasModule,
+        PagosModule,
+        RetiroMenoresModule,
 
-controllers:[
-AppController
-],
+        MercadopagoModule,
+    ],
 
-providers:[
-AppService
-]
+    controllers: [
+        AppController,
+    ],
 
+    providers: [
+        AppService,
+    ],
 })
 export class AppModule {}
