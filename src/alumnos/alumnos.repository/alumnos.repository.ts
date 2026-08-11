@@ -149,7 +149,7 @@ async findByEmail(dto: LoginDto){
 
   const result = await this.databaseService.query(
     `
-      SELECT * FROM findByEmail($1)
+      SELECT * FROM buscarUsuarioEmail($1)
     `,
     [
       dto.email
