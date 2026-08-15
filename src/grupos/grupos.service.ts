@@ -1,96 +1,94 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+    Injectable,
+    ConflictException,
+    NotFoundException,
+} from '@nestjs/common';
+
 import { GruposRepository } from '../grupos/grupos.repository/grupos.repository';
 import { Grupos_Alumnos } from '../grupos/dto/grupos.dto';
-import { CreateGrupoClaseDto } from '../grupos/dto/alumnos_clases.dto';
-
 
 @Injectable()
 export class GruposService {
+
     constructor(
-        private readonly gruposRepository: GruposRepository
-    ){}
+        private readonly gruposRepository: GruposRepository,
+    ) {}
 
-    async crearGrupo(dto: Grupos_Alumnos){
-        if(dto.cupo_max <= 0){
+    async crearGrupo(dto: Grupos_Alumnos) {
+
+        if (dto.cupo_max <= 0) {
             throw new ConflictException(
-                'El cupo debe ser mayor a 0'
+                'El cupo debe ser mayor a 0',
             );
         }
 
-        if(dto.hora_fin <= dto.hora_inicio){
-            throw new ConflictException(
-                'Horario inválido'
-            );
-
-        }
         try {
 
-            await this.gruposRepository.crearGrupo(dto);
+            await this.gruposRepository.crearGrupo(
+                dto.id_disciplina,
+                dto.id_profesor,
+                dto.nivel,
+                dto.cupo_max,
+            );
+
             return {
-                message: 'Grupo creado correctamente'
+                message: 'Grupo creado correctamente',
             };
-        } catch(error){
+
+        } catch (error: any) {
+
+            if (error.code === '23505') {
+                throw new ConflictException(
+                    'No se puede crear el grupo: ya existe un grupo con esa disciplina, profesor y nivel',
+                );
+            }
+
             throw new ConflictException(
-                'Error creando grupo'
+                'Error creando grupo',
             );
         }
     }
 
+    async obtenerGrupos(id_alumno: number) {
 
-    async obtenerGrupos(id_alumno: number){
         const clases = await this.gruposRepository.obtenerGrupos(
-            id_alumno
+            id_alumno,
         );
-        if(clases.length === 0){
+
+        if (clases.length === 0) {
             throw new NotFoundException(
-                'No se encontraron clases para el alumno'
+                'No se encontraron clases para el alumno',
             );
         }
+
         return clases;
     }
 
-
-    async todasLasClases(){
-
+    async todasLasClases() {
 
         const clases = await this.gruposRepository.todasLasClases();
 
-
-        if(clases.length === 0){
-
+        if (clases.length === 0) {
             throw new NotFoundException(
-                'No existen clases registradas'
+                'No existen clases registradas',
             );
-
         }
-
 
         return clases;
-
     }
 
-
-
-
-    async clasePorId(id_clase:number){
-
+    async clasePorId(id_clase: number) {
 
         const clase = await this.gruposRepository.clasePorId(
-            id_clase
+            id_clase,
         );
 
-
-        if(!clase){
-
+        if (!clase) {
             throw new NotFoundException(
-                'No se encontró la clase'
+                'No se encontró la clase',
             );
-
         }
 
-
         return clase;
-
     }
-
 }
