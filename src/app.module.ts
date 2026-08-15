@@ -17,14 +17,13 @@ import { DisciplinasModule } from './disciplinas/disciplinas.module';
 import { GruposModule } from './grupos/grupos.module';
 import { HorariosModule } from './horarios/horarios.module';
 import { InscripcionesModule } from './inscripciones/inscripciones.module';
-import { PagosModule } from './pagos/pagos.module'
+import { PagosModule } from './pagos/pagos.module';
 import { ProfesoresModule } from './profesores/profesores.module';
 import { RetiroMenoresModule } from './retiro-menores/retiro-menores.module';
 
 import { MercadopagoModule } from './integrations/mercadopago/mercadopago.module';
 
 @Module({
-
     imports: [
 
         ConfigModule.forRoot({
