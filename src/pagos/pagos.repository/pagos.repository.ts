@@ -12,7 +12,7 @@ export class PagosRepository {
   ) {}
 
   // ============================================================
-  // OBTENER CUOTA
+  // OBTENER CUOTA + PAQUETE + ALUMNO
   // ============================================================
 
   async obtenerCuota(
@@ -21,19 +21,45 @@ export class PagosRepository {
     const result =
       await this.databaseService.query(
         `
-        SELECT *
-        FROM obtener_cuota($1)
+        SELECT
+            c.id_cuota,
+            c.id_alumno,
+            c.id_paquete,
+            c.mes_anio,
+            c.monto,
+            c.vencimiento,
+            c.estado,
+            c.saldo,
+
+            p.nombre AS paquete_nombre,
+            p.cantidad_creditos AS paquete_creditos,
+            p.precio AS paquete_precio,
+
+            u.nombre,
+            u.apellido,
+            u.email
+
+        FROM cuota c
+
+        INNER JOIN alumnos a
+            ON a.id_alumno = c.id_alumno
+
+        INNER JOIN users u
+            ON u.id_usuario = a.id_usuario
+
+        INNER JOIN paquetes_creditos p
+            ON p.id_paquete = c.id_paquete
+
+        WHERE c.id_cuota = $1
         `,
-        [
-          idCuota,
-        ],
+        [idCuota],
       );
 
     return result.rows[0] ?? null;
   }
 
   // ============================================================
-  // OBTENER CUOTAS DE UN ALUMNO
+  // OBTENER CUOTAS DEL ALUMNO
   // ============================================================
 
   async obtenerCuotasAlumno(
@@ -42,19 +68,37 @@ export class PagosRepository {
     const result =
       await this.databaseService.query(
         `
-        SELECT *
-        FROM obtener_cuotas_alumno($1)
+        SELECT
+            c.id_cuota,
+            c.id_alumno,
+            c.id_paquete,
+            c.mes_anio,
+            c.monto,
+            c.vencimiento,
+            c.estado,
+            c.saldo,
+
+            p.nombre AS paquete_nombre,
+            p.cantidad_creditos AS paquete_creditos,
+            p.precio AS paquete_precio
+
+        FROM cuota c
+
+        INNER JOIN paquetes_creditos p
+            ON p.id_paquete = c.id_paquete
+
+        WHERE c.id_alumno = $1
+
+        ORDER BY c.id_cuota DESC
         `,
-        [
-          idAlumno,
-        ],
+        [idAlumno],
       );
 
     return result.rows;
   }
 
   // ============================================================
-  // OBTENER PAGOS DE UN ALUMNO
+  // OBTENER PAGOS DEL ALUMNO
   // ============================================================
 
   async obtenerPagosAlumno(
@@ -66,33 +110,10 @@ export class PagosRepository {
         SELECT *
         FROM obtener_pagos_alumno($1)
         `,
-        [
-          idAlumno,
-        ],
+        [idAlumno],
       );
 
     return result.rows;
-  }
-
-  // ============================================================
-  // OBTENER PAGO POR MERCADO PAGO
-  // ============================================================
-
-  async obtenerPagoPorMercadoPago(
-    idMercadoPago: number,
-  ) {
-    const result =
-      await this.databaseService.query(
-        `
-        SELECT *
-        FROM obtener_pago_mercado_pago($1)
-        `,
-        [
-          idMercadoPago,
-        ],
-      );
-
-    return result.rows[0] ?? null;
   }
 
   // ============================================================
@@ -106,12 +127,10 @@ export class PagosRepository {
       await this.databaseService.query(
         `
         SELECT
-          existe_pago_mercado_pago($1)
-          AS existe
+            existe_pago_mercado_pago($1)
+            AS existe
         `,
-        [
-          idMercadoPago,
-        ],
+        [idMercadoPago],
       );
 
     return Boolean(
@@ -132,10 +151,10 @@ export class PagosRepository {
     await this.databaseService.query(
       `
       CALL registrar_pago_cuota(
-        $1,
-        $2,
-        $3,
-        $4
+          $1,
+          $2,
+          $3,
+          $4
       )
       `,
       [
