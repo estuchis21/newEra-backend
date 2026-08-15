@@ -1,16 +1,12 @@
 import {
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 
-import {
-  PagosRepository,
-} from './pagos.repository/pagos.repository';
+import { PagosRepository } from './pagos.repository/pagos.repository';
 
-import {
-  MercadopagoService,
-} from '../integrations/mercadopago/mercadopago.service';
+import { MercadopagoService } from '../integrations/mercadopago/mercadopago.service';
 
 @Injectable()
 export class PagosService {
@@ -23,342 +19,189 @@ export class PagosService {
   ) {}
 
   // ============================================================
-  // CREAR CHECKOUT
+  // CREAR PAGO
   // ============================================================
 
   async crearPago(
     idCuota: number,
-    monto: number,
   ) {
-    // ----------------------------------------------------------
-    // VALIDAR ID
-    // ----------------------------------------------------------
-
-    if (
-      !Number.isInteger(idCuota) ||
-      idCuota <= 0
-    ) {
-      throw new BadRequestException(
-        'El id de cuota no es válido',
+    try {
+      console.log(
+        '================================',
       );
-    }
 
-    // ----------------------------------------------------------
-    // OBTENER CUOTA
-    // ----------------------------------------------------------
-
-    const cuota =
-      await this.pagosRepository
-        .obtenerCuota(idCuota);
-
-    if (!cuota) {
-      throw new NotFoundException(
-        `La cuota ${idCuota} no existe`,
+      console.log(
+        'INICIANDO PAGO',
       );
-    }
 
-    // ----------------------------------------------------------
-    // OBTENER SALDO
-    // ----------------------------------------------------------
-
-    const saldo =
-      Number(cuota.saldo);
-
-    if (
-      Number.isNaN(saldo) ||
-      saldo < 0
-    ) {
-      throw new BadRequestException(
-        'El saldo de la cuota no es válido',
-      );
-    }
-
-    if (saldo <= 0) {
-      throw new BadRequestException(
-        'La cuota ya está pagada',
-      );
-    }
-
-    // ----------------------------------------------------------
-    // VALIDAR MONTO
-    // ----------------------------------------------------------
-
-    const montoNumerico =
-      Number(monto);
-
-    if (
-      !Number.isFinite(montoNumerico) ||
-      montoNumerico <= 0
-    ) {
-      throw new BadRequestException(
-        'El monto debe ser mayor a 0',
-      );
-    }
-
-    if (
-      montoNumerico > saldo
-    ) {
-      throw new BadRequestException(
-        `El monto supera el saldo disponible de ${saldo}`,
-      );
-    }
-
-    // ----------------------------------------------------------
-    // DATOS DEL ALUMNO
-    // ----------------------------------------------------------
-
-    const nombre =
-      cuota.nombre ??
-      'Alumno';
-
-    const apellido =
-      cuota.apellido ??
-      '';
-
-    const email =
-      cuota.email;
-
-    if (!email) {
-      throw new BadRequestException(
-        'La cuota no tiene un email asociado',
-      );
-    }
-
-    const nombreCompleto =
-      `${nombre} ${apellido}`.trim();
-
-    // ----------------------------------------------------------
-    // CREAR PREFERENCIA
-    // ----------------------------------------------------------
-
-    return await this.mercadopagoService
-      .crearPreferencia(
+      console.log(
+        'CUOTA:',
         idCuota,
-        montoNumerico,
-        nombreCompleto,
+      );
+
+      console.log(
+        '================================',
+      );
+
+      // ========================================================
+      // OBTENER CUOTA
+      // ========================================================
+
+      const cuota =
+        await this.pagosRepository.obtenerCuota(
+          idCuota,
+        );
+
+      if (!cuota) {
+        throw new NotFoundException(
+          'La cuota no existe',
+        );
+      }
+
+      // ========================================================
+      // VALIDACIONES
+      // ========================================================
+
+      if (!cuota.monto) {
+        throw new InternalServerErrorException(
+          'La cuota no tiene un monto válido',
+        );
+      }
+
+      if (!cuota.email) {
+        throw new InternalServerErrorException(
+          'El alumno no tiene email',
+        );
+      }
+
+      // ========================================================
+      // DATOS
+      // ========================================================
+
+      const monto =
+        Number(cuota.monto);
+
+      const nombre =
+        `${cuota.nombre} ${cuota.apellido}`.trim();
+
+      const email =
+        String(cuota.email).trim();
+
+      const creditos =
+        Number(cuota.paquete_creditos);
+
+      const descripcionItem =
+        cuota.paquete_nombre
+          ? `${cuota.paquete_nombre} - ${creditos} créditos`
+          : `Pago de cuota #${idCuota}`;
+
+      // ========================================================
+      // LOG
+      // ========================================================
+
+      console.log(
+        '================================',
+      );
+
+      console.log(
+        'DATOS DEL PAGO',
+      );
+
+      console.log(
+        'CUOTA:',
+        idCuota,
+      );
+
+      console.log(
+        'ALUMNO:',
+        nombre,
+      );
+
+      console.log(
+        'EMAIL:',
         email,
       );
-  }
 
-  // ============================================================
-  // PROCESAR WEBHOOK
-  // ============================================================
-
-  async procesarPago(
-    idMercadoPago: number,
-  ) {
-    // ----------------------------------------------------------
-    // VALIDAR ID
-    // ----------------------------------------------------------
-
-    if (
-      !Number.isInteger(idMercadoPago) ||
-      idMercadoPago <= 0
-    ) {
-      throw new BadRequestException(
-        'El ID del pago de Mercado Pago no es válido',
-      );
-    }
-
-    // ----------------------------------------------------------
-    // IDEMPOTENCIA
-    // ----------------------------------------------------------
-
-    const existe =
-      await this.pagosRepository
-        .existePagoMercadoPago(
-          idMercadoPago,
-        );
-
-    if (existe) {
-      return {
-        mensaje:
-          'El pago ya fue procesado',
-      };
-    }
-
-    // ----------------------------------------------------------
-    // CONSULTAR PAGO EN MERCADO PAGO
-    // ----------------------------------------------------------
-
-    const pago =
-      await this.mercadopagoService
-        .obtenerPago(
-          idMercadoPago,
-        );
-
-    if (!pago) {
-      throw new NotFoundException(
-        'No se encontró el pago en Mercado Pago',
-      );
-    }
-
-    console.log(
-      '================================',
-    );
-
-    console.log(
-      'PAGO MERCADO PAGO:',
-      pago,
-    );
-
-    console.log(
-      '================================',
-    );
-
-    // ----------------------------------------------------------
-    // VERIFICAR ESTADO
-    // ----------------------------------------------------------
-
-    if (
-      pago.status !== 'approved'
-    ) {
-      return {
-        mensaje:
-          'El pago todavía no está aprobado',
-
-        estado:
-          pago.status,
-      };
-    }
-
-    // ----------------------------------------------------------
-    // OBTENER MONTO
-    // ----------------------------------------------------------
-
-    const monto =
-      Number(
-        pago.transaction_amount,
+      console.log(
+        'MONTO:',
+        monto,
       );
 
-    if (
-      !Number.isFinite(monto) ||
-      monto <= 0
-    ) {
-      throw new BadRequestException(
-        'El pago no tiene un monto válido',
-      );
-    }
-
-    // ----------------------------------------------------------
-    // OBTENER REFERENCIA
-    // ----------------------------------------------------------
-
-    const externalReference =
-      pago.external_reference;
-
-    if (!externalReference) {
-      throw new BadRequestException(
-        'El pago no tiene external_reference',
-      );
-    }
-
-    const referencia =
-      String(
-        externalReference,
+      console.log(
+        'CRÉDITOS:',
+        creditos,
       );
 
-    if (
-      !referencia.startsWith(
-        'cuota-',
-      )
-    ) {
-      throw new BadRequestException(
-        'La referencia del pago no corresponde a una cuota',
-      );
-    }
-
-    // ----------------------------------------------------------
-    // OBTENER ID CUOTA
-    // ----------------------------------------------------------
-
-    const idCuota =
-      Number(
-        referencia.replace(
-          'cuota-',
-          '',
-        ),
+      console.log(
+        'DESCRIPCIÓN:',
+        descripcionItem,
       );
 
-    if (
-      !Number.isInteger(idCuota) ||
-      idCuota <= 0
-    ) {
-      throw new BadRequestException(
-        'El ID de cuota asociado al pago no es válido',
+      console.log(
+        '================================',
       );
-    }
 
-    // ----------------------------------------------------------
-    // VERIFICAR CUOTA
-    // ----------------------------------------------------------
+      // ========================================================
+      // CREAR PREFERENCIA MERCADO PAGO
+      // ========================================================
 
-    const cuota =
-      await this.pagosRepository
-        .obtenerCuota(
-          idCuota,
-        );
-
-    if (!cuota) {
-      throw new NotFoundException(
-        `La cuota ${idCuota} no existe`,
-      );
-    }
-
-    const saldo =
-      Number(cuota.saldo);
-
-    if (
-      !Number.isFinite(saldo) ||
-      saldo <= 0
-    ) {
-      throw new BadRequestException(
-        'La cuota no tiene saldo pendiente',
-      );
-    }
-
-    // ----------------------------------------------------------
-    // VALIDAR MONTO CONTRA SALDO
-    // ----------------------------------------------------------
-
-    if (
-      monto > saldo
-    ) {
-      throw new BadRequestException(
-        `El pago de ${monto} supera el saldo de la cuota (${saldo})`,
-      );
-    }
-
-    // ----------------------------------------------------------
-    // REGISTRAR PAGO
-    // ----------------------------------------------------------
-
-    const resultado =
-      await this.pagosRepository
-        .registrarPagoCuota(
+      const preference =
+        await this.mercadopagoService.crearPreferencia(
           idCuota,
           monto,
-          idMercadoPago,
-          'mercadopago',
+          nombre,
+          email,
+          descripcionItem,
         );
 
-    // ----------------------------------------------------------
-    // RESPUESTA
-    // ----------------------------------------------------------
+      // ========================================================
+      // RESPUESTA
+      // ========================================================
 
-    return {
-      mensaje:
-        'Pago aprobado y registrado',
+      return {
+        success: true,
 
-      id_mercado_pago:
-        idMercadoPago,
-
-      id_cuota:
         idCuota,
 
-      monto,
+        monto,
 
-      resultado,
-    };
+        descripcion:
+          descripcionItem,
+
+        preferenceId:
+          preference.id,
+
+        init_point:
+          preference.init_point,
+      };
+
+    } catch (error) {
+      console.error(
+        '================================',
+      );
+
+      console.error(
+        'ERROR CREANDO PAGO',
+      );
+
+      console.error(error);
+
+      console.error(
+        '================================',
+      );
+
+      if (
+        error instanceof
+          NotFoundException ||
+        error instanceof
+          InternalServerErrorException
+      ) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'No se pudo crear el pago',
+      );
+    }
   }
 }

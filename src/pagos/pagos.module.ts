@@ -1,16 +1,23 @@
 import { Module } from '@nestjs/common';
 
-import { PagosService } from './pagos.service';
-import { PagosController } from './pagos.controller';
-import { PagosRepository } from './pagos.repository/pagos.repository';
+import {
+  PagosController,
+} from './pagos.controller';
 
-import { MercadopagoModule } from '../integrations/mercadopago/mercadopago.module';
+import {
+  PagosService,
+} from './pagos.service';
 
-import { DatabaseModule } from '../database/database.module';
+import {
+  PagosRepository,
+} from './pagos.repository/pagos.repository';
+
+import {
+  MercadopagoModule,
+} from '../integrations/mercadopago/mercadopago.module';
 
 @Module({
   imports: [
-    DatabaseModule,
     MercadopagoModule,
   ],
 
@@ -21,10 +28,6 @@ import { DatabaseModule } from '../database/database.module';
   providers: [
     PagosService,
     PagosRepository,
-  ],
-
-  exports: [
-    PagosService,
   ],
 })
 export class PagosModule {}

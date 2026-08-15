@@ -1,20 +1,17 @@
 import {
-    Body,
-    Controller,
-    Post,
+  Body,
+  Controller,
+  Post,
 } from '@nestjs/common';
 
 import { MercadopagoService } from './mercadopago.service';
 
-
 @Controller('pagos')
 export class MercadopagoController {
-
   constructor(
     private readonly mercadopagoService:
       MercadopagoService,
   ) {}
-
 
   @Post('crear-preferencia')
   async crearPreferencia(
@@ -26,33 +23,26 @@ export class MercadopagoController {
       email: string;
     },
   ) {
-
-    return this.mercadopagoService
-      .crearPreferencia(
-        body.idCuota,
-        body.monto,
-        body.nombre,
-        body.email,
-      );
-
+    return await this.mercadopagoService.crearPreferencia(
+      Number(body.idCuota),
+      Number(body.monto),
+      body.nombre,
+      body.email,
+      `Pago de cuota #${body.idCuota}`,
+    );
   }
-
 
   @Post('webhook')
   async webhook(
     @Body() body: any,
   ) {
-
     console.log(
       'Webhook Mercado Pago:',
       body,
     );
 
-
     return {
       received: true,
     };
-
   }
-
 }
