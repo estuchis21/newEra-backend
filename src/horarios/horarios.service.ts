@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { HorariosRepository } from '../horarios/horarios.repository/horarios.repository';
 
 @Injectable()
@@ -27,11 +27,25 @@ export class HorariosService {
             throw new Error('La hora de inicio y finalización son obligatorias');
         }
 
-        return this.horariosRepository.agregarHorarioGrupo(
-            idGrupo,
-            diaSemana,
-            horaInicio,
-            horaFin,
-        );
+        try{
+            return await this.horariosRepository.agregarHorarioGrupo(
+                idGrupo,
+                diaSemana,
+                horaInicio,
+                horaFin,
+            );
+        }
+        catch (error: any) {
+            if (error.code === '23503') {
+                throw new ConflictException('El ID del grupo no existe');
+            }
+            if (error.code === '23514') {
+                throw new ConflictException('El horario no es válido');
+            }
+            if (error.code === '23505') {
+                throw new ConflictException('Ya existe un horario para ese grupo en ese día y hora');
+            }
+            throw new ConflictException('Error agregando horario al grupo');
+        }
     }
 }
