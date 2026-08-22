@@ -91,4 +91,9 @@ export class GruposService {
 
         return clase;
     }
+
+    async gruposDisponibles() {
+        return this.gruposRepository.gruposDisponibles();
+    }
+
 }

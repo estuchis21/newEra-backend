@@ -62,4 +62,15 @@ export class GruposRepository {
 
         return result.rows[0] ?? null;
     }
+
+    async gruposDisponibles() {
+        const result = await this.databaseService.query(
+            `
+            SELECT *
+            FROM grupos_disponibles()
+            `,
+        );
+
+        return result.rows;
+    }
 }

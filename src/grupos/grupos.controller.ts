@@ -42,4 +42,11 @@ export class GruposController {
     ) {
         return this.gruposService.clasePorId(id_clase);
     }
+
+    @Get('disponibles')
+    async gruposDisponibles() {
+
+        return this.gruposService.gruposDisponibles();
+
+    }
 }
