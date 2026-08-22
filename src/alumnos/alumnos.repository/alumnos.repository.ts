@@ -111,7 +111,7 @@ export class AlumnosRepository {
         );
       return resultado;
 
-    } catch(error) {
+    } catch(error:any) {
 
       // DUPLICADOS DE POSTGRES
 
@@ -145,24 +145,35 @@ export class AlumnosRepository {
     }
   }
 
-async findByEmail(dto: LoginDto){
+async obtenerIdAlumnoPorUsuario(
+  id_usuario: number
+): Promise<number | null> {
+
+  const result = await this.databaseService.query(
+    `
+      SELECT obtener_id_alumno_por_usuario($1) AS id_alumno
+    `,
+    [id_usuario]
+  );
+
+  return result.rows[0]?.id_alumno ?? null;
+}
+
+async findByEmail(email: string) {
 
   const result = await this.databaseService.query(
     `
       SELECT * FROM buscarUsuarioEmail($1)
     `,
     [
-      dto.email
+      email
     ]
   );
 
-
-  if(result.rows.length === 0){
-    throw new Error('Usuario no encontrado');
+  if(result.rows.length === 0) {
+    return null;
   }
 
-
   return result.rows[0];
-
 }
 }
