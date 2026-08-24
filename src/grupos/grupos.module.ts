@@ -8,3 +8,4 @@ import { GruposRepository } from './grupos.repository/grupos.repository';
   providers: [GruposService, GruposRepository],
 })
 export class GruposModule {}
+aaa
