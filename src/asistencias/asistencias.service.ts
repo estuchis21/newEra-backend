@@ -29,23 +29,12 @@ export class AsistenciasService {
         estado: string,
         observaciones: string,
     ) {
-        if (!Number.isInteger(idAlumno) || idAlumno <= 0) {
-            throw new BadRequestException('El ID del alumno no es válido');
-        }
-
-        if (!Number.isInteger(idClase) || idClase <= 0) {
-            throw new BadRequestException('El ID de la clase no es válido');
-        }
-
-        if (!estado || estado.trim() === '') {
-            throw new BadRequestException('El estado es obligatorio');
-        }
 
         return this.asistenciasRepository.registrarAsistencia(
-            idAlumno,
-            idClase,
-            estado,
-            observaciones,
+        idAlumno,
+        idClase,
+        estado,
+        observaciones,
         );
     }
 }

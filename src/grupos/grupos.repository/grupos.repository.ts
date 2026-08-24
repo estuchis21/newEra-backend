@@ -31,10 +31,8 @@ export class GruposRepository {
 
     async obtenerGrupos(id_alumno: number) {
         const result = await this.databaseService.query(
-            `
-            SELECT clases_por_alumnos($1) AS clases
-            `,
-            [id_alumno],
+        `SELECT * FROM clases_por_alumno($1::integer)`,
+        [id_alumno]
         );
 
         return result.rows[0]?.clases ?? [];
