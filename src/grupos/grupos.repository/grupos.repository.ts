@@ -73,4 +73,66 @@ export class GruposRepository {
 
         return result.rows;
     }
+    async gruposPorProfesor(idProfesor: number) {
+        const result = await this.databaseService.query(
+            `
+            SELECT *
+            FROM obtener_grupos_profesor($1)
+            `,
+            [idProfesor],
+        );
+ 
+        return result.rows;
+    }
+    async clasesPorProfesor(idProfesor: number, fecha: string | null) {
+        const result = await this.databaseService.query(
+            `
+            SELECT *
+            FROM clases_por_profesor($1, $2)
+            `,
+            [idProfesor, fecha],
+        );
+ 
+        return result.rows;
+    }
+    async alumnosPorClase(idClase: number) {
+        const result = await this.databaseService.query(
+            `
+            SELECT *
+            FROM alumnos_por_clase($1)
+            `,
+            [idClase],
+        );
+ 
+        return result.rows;
+    }
+    async registrarRetiro(
+        idAlumno: number,
+        idAutorizada: number,
+        idProfesor: number,
+    ) {
+        const result = await this.databaseService.query(
+            `
+            CALL registrar_retiro($1, $2, $3)
+            `,
+            [
+                idAlumno,
+                idAutorizada,
+                idProfesor,
+            ],
+        );
+ 
+        return result;
+    }
+       async liquidacionesPorProfesor(idProfesor: number) {
+        const result = await this.databaseService.query(
+            `
+            SELECT *
+            FROM liquidaciones_por_profesor($1)
+            `,
+            [idProfesor],
+        );
+ 
+        return result.rows;
+    }
 }

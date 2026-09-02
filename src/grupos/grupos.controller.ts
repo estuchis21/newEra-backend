@@ -5,6 +5,7 @@ import {
     Param,
     ParseIntPipe,
     Post,
+    Query
 } from '@nestjs/common';
 
 import { GruposService } from './grupos.service';
@@ -48,5 +49,38 @@ export class GruposController {
 
         return this.gruposService.gruposDisponibles();
 
+    }
+    @Get('profesor/:id_profesor')
+    async gruposPorProfesor(
+        @Param('id_profesor', ParseIntPipe) id_profesor: number,
+    ) {
+        return this.gruposService.gruposPorProfesor(id_profesor);
+    }
+
+    @Get('profesor/:id_profesor/clases')
+    async clasesPorProfesor(
+        @Param('id_profesor', ParseIntPipe) id_profesor: number,
+        @Query('fecha') fecha?: string,
+    ) {
+        return this.gruposService.clasesPorProfesor(
+            id_profesor,
+            fecha ?? null,
+        );
+    }
+
+    @Get('clase/:id_clase/alumnos')
+    async alumnosPorClase(
+        @Param('id_clase', ParseIntPipe) id_clase: number,
+    ) {
+        return this.gruposService.alumnosPorClase(id_clase);
+    }
+
+    @Get('profesor/:id_profesor/liquidaciones')
+    async liquidacionesPorProfesor(
+        @Param('id_profesor', ParseIntPipe) id_profesor: number,
+    ) {
+        return this.gruposService.liquidacionesPorProfesor(
+            id_profesor,
+        );
     }
 }
