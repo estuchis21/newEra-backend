@@ -9,26 +9,22 @@ import { ProfesoresRepository } from './profesores.repository/profesores.reposit
 export class ProfesoresService {
 
     constructor(
-        private readonly profesoresRepository:
-            ProfesoresRepository,
+        private readonly profesoresRepository: ProfesoresRepository,
     ) {}
 
     async obtenerProfesorPorUsuario(
-        idUsuario: number,
+        idUsuario: number
     ) {
 
         const profesor =
-            await this.profesoresRepository
-                .obtenerProfesorPorUsuario(
-                    idUsuario,
-                );
-
-        if (!profesor) {
-
-            throw new NotFoundException(
-                'El usuario no está registrado como profesor',
+            await this.profesoresRepository.obtenerProfesorPorUsuario(
+                idUsuario
             );
 
+        if (!profesor) {
+            throw new NotFoundException(
+                'El usuario no está registrado como profesor'
+            );
         }
 
         return profesor;

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
@@ -9,17 +10,24 @@ export class ProfesoresRepository {
     ) {}
 
     async obtenerProfesorPorUsuario(
-        idUsuario: number,
+        idUsuario: number
     ) {
 
         const result =
             await this.databaseService.query(
                 `
                 SELECT *
-                FROM obtener_profesor_por_usuario($1)
+                FROM obtener_profesor_por_usuario(
+                    $1::integer
+                )
                 `,
-                [idUsuario],
+                [idUsuario]
             );
+
+        console.log(
+            'PROFESOR POR USUARIO:',
+            result.rows
+        );
 
         return result.rows[0] ?? null;
     }
