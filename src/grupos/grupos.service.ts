@@ -96,4 +96,48 @@ export class GruposService {
         return this.gruposRepository.gruposDisponibles();
     }
 
+    async gruposPorProfesor(idProfesor: number) {
+    const grupos = await this.gruposRepository.gruposPorProfesor(
+        idProfesor,
+    );
+
+    if (grupos.length === 0) {
+        throw new NotFoundException(
+            'El profesor no tiene grupos asignados',
+        );
+    }
+
+    return grupos;
+}
+
+    async clasesPorProfesor(
+        idProfesor: number,
+        fecha: string | null,
+    ) {
+        return this.gruposRepository.clasesPorProfesor(
+            idProfesor,
+            fecha,
+        );
+    }
+
+    async alumnosPorClase(idClase: number) {
+        const alumnos = await this.gruposRepository.alumnosPorClase(
+            idClase,
+        );
+
+        if (alumnos.length === 0) {
+            throw new NotFoundException(
+                'No hay alumnos en esta clase',
+            );
+        }
+
+        return alumnos;
+    }
+
+    async liquidacionesPorProfesor(idProfesor: number) {
+        return this.gruposRepository.liquidacionesPorProfesor(
+            idProfesor,
+        );
+    }
+
 }
