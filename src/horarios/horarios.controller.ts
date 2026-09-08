@@ -1,6 +1,6 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { HorariosService } from './horarios.service';
 import { CrearHorarioDto } from './dto/horarios.dto';
+import { HorariosService } from './horarios.service';
 
 @Controller('horarios')
 export class HorariosController {
@@ -13,6 +13,7 @@ export class HorariosController {
     async agregarHorarioGrupo(
         @Body() crearHorarioDto: CrearHorarioDto,
     ) {
+
         return this.horariosService.agregarHorarioGrupo(
             crearHorarioDto.idGrupo,
             crearHorarioDto.diaSemana,
