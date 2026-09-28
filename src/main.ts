@@ -12,7 +12,7 @@ async function bootstrap() {
       'http://localhost:5173',
       'https://new-era-frontend-jqv9.vercel.app',
       'https://new-era-frontend-88rf.vercel.app',
-      'https://new-era-frontend-g4rt.vercel.app'
+      'https://new-era-frontend-gw3k.vercel.app'
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
