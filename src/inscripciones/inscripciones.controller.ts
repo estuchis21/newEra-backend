@@ -7,6 +7,7 @@ import {
     Param,
     ParseIntPipe,
     Post,
+    Delete
 } from '@nestjs/common';
 
 import { InscripcionesService } from './inscripciones.service';
@@ -49,6 +50,15 @@ export class InscripcionesController {
       data: result
     };
   }
+
+  @Delete(':id_inscripcion')
+    async eliminarInscripcion(
+        @Param('id_inscripcion', ParseIntPipe) idInscripcion: number
+    ) {
+        return await this.inscripcionesService.eliminarInscripcion(
+            idInscripcion
+        );
+      }
 
 
   // ============================================================

@@ -31,11 +31,14 @@ export class GruposRepository {
 
     async obtenerGrupos(id_alumno: number) {
         const result = await this.databaseService.query(
-        `SELECT * FROM clases_por_alumno($1::integer)`,
-        [id_alumno]
+            `
+            SELECT *
+            FROM clases_por_alumno($1::integer)
+            `,
+            [id_alumno],
         );
 
-        return result.rows[0]?.clases ?? [];
+        return result.rows;
     }
 
     async todasLasClases() {
@@ -71,6 +74,7 @@ export class GruposRepository {
 
         return result.rows;
     }
+
     async gruposPorProfesor(idProfesor: number) {
         const result = await this.databaseService.query(
             `
@@ -79,10 +83,14 @@ export class GruposRepository {
             `,
             [idProfesor],
         );
- 
+
         return result.rows;
     }
-    async clasesPorProfesor(idProfesor: number, fecha: string | null) {
+
+    async clasesPorProfesor(
+        idProfesor: number,
+        fecha: string | null,
+    ) {
         const result = await this.databaseService.query(
             `
             SELECT *
@@ -90,9 +98,10 @@ export class GruposRepository {
             `,
             [idProfesor, fecha],
         );
- 
+
         return result.rows;
     }
+
     async alumnosPorClase(idClase: number) {
         const result = await this.databaseService.query(
             `
@@ -101,9 +110,10 @@ export class GruposRepository {
             `,
             [idClase],
         );
- 
+
         return result.rows;
     }
+
     async registrarRetiro(
         idAlumno: number,
         idAutorizada: number,
@@ -119,10 +129,13 @@ export class GruposRepository {
                 idProfesor,
             ],
         );
- 
+
         return result;
     }
-       async liquidacionesPorProfesor(idProfesor: number) {
+
+    async liquidacionesPorProfesor(
+        idProfesor: number,
+    ) {
         const result = await this.databaseService.query(
             `
             SELECT *
@@ -130,7 +143,7 @@ export class GruposRepository {
             `,
             [idProfesor],
         );
- 
+
         return result.rows;
     }
 }

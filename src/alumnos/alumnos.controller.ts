@@ -114,4 +114,39 @@ export class AlumnosController {
       data: result,
     };
   }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(
+      @Body('email') email: string,
+  ) {
+      const result =
+          await this.alumnosService.solicitarRecuperacion(
+              email,
+          );
+
+      return {
+          statusCode: HttpStatus.OK,
+          ...result,
+      };
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(
+      @Body('token') token: string,
+      @Body('nuevaContrasena') nuevaContrasena: string,
+  ) {
+
+      const result =
+          await this.alumnosService.restablecerContrasena(
+              token,
+              nuevaContrasena,
+          );
+
+      return {
+          statusCode: HttpStatus.OK,
+          ...result,
+      };
+  }
 }

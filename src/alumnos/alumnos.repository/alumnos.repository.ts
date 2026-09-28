@@ -15,6 +15,92 @@ export class AlumnosRepository {
         private readonly databaseService: DatabaseService,
     ) {}
 
+    async crearTokenRecuperacion(
+    id_usuario: number,
+    token: string,
+    fechaExpiracion: Date,
+) {
+
+    await this.databaseService.query(
+        `
+        INSERT INTO tokens_recuperacion_password
+        (
+            id_usuario,
+            token,
+            fecha_expiracion
+        )
+        VALUES
+        (
+            $1,
+            $2,
+            $3
+        )
+        `,
+        [
+            id_usuario,
+            token,
+            fechaExpiracion,
+        ],
+    );
+}
+
+async buscarTokenRecuperacion(
+    token: string,
+) {
+
+    const resultado =
+        await this.databaseService.query(
+            `
+            SELECT
+                id_token,
+                id_usuario,
+                token,
+                fecha_expiracion,
+                utilizado
+            FROM tokens_recuperacion_password
+            WHERE token = $1
+            `,
+            [
+                token,
+            ],
+        );
+
+    return resultado.rows[0] ?? null;
+}
+
+async cambiarContrasena(
+    id_usuario: number,
+    contrasena: string,
+) {
+
+    await this.databaseService.query(
+        `
+        UPDATE users
+        SET contrasena = $1
+        WHERE id_usuario = $2
+        `,
+        [
+            contrasena,
+            id_usuario,
+        ],
+    );
+}
+
+    async marcarTokenUtilizado(
+        id_token: number,
+    ) {
+
+        await this.databaseService.query(
+            `
+            UPDATE tokens_recuperacion_password
+            SET utilizado = TRUE
+            WHERE id_token = $1
+            `,
+            [
+                id_token,
+            ],
+        );
+    }
 
     // =====================================================
     // CREAR USUARIO
@@ -99,7 +185,7 @@ export class AlumnosRepository {
 
             await this.databaseService.query(
                 `
-                CALL public.registroalumno(
+                CALL registroalumno(
 
                     ROW(
                         $1,

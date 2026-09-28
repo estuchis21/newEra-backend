@@ -25,6 +25,17 @@ export class InscripcionesRepository {
         return result;
     }
 
+    async eliminarInscripcion(idInscripcion: number) {
+        await this.databaseService.query(
+            `CALL eliminar_inscripcion($1)`,
+            [idInscripcion]
+        );
+
+        return {
+            mensaje: 'Inscripción eliminada correctamente'
+        };
+    }
+
     async obtenerInscripcionesPorAlumno(
         idAlumno: number,
     ) {

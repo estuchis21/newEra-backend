@@ -18,6 +18,12 @@ export class InscripcionesService {
         );
     }
 
+    async eliminarInscripcion(idInscripcion: number) {
+        return await this.inscripcionesRepository.eliminarInscripcion(
+            idInscripcion
+        );
+    }
+
     async obtenerInscripcionesPorAlumno(
         idAlumno: number,
     ) {

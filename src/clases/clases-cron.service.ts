@@ -13,71 +13,73 @@ export class ClasesCronService {
 
     // ============================================================
     // GENERAR LAS CLASES DEL DÍA
-    // Se ejecuta todos los días a las 00:00
+    //
+    // Se ejecuta todos los días a las 00:00.
+    // Ejecuta el procedimiento PostgreSQL:
+    // CALL generar_clases_del_dia()
     // ============================================================
 
     @Cron('0 0 * * *')
-    async generarClasesDelDia() {
+    async generarClasesDelDia(): Promise<void> {
 
         this.logger.log(
-            'Ejecutando generación automática de clases...',
+            'Iniciando generación automática de clases del día...',
         );
 
         try {
 
             const result = await this.databaseService.query(
-                `CALL generar_clases_del_dia()`,
+                'CALL generar_clases_del_dia()',
             );
 
             this.logger.log(
-                `Clases creadas: ${result.rowCount}`,
+                `Generación de clases finalizada. Registros afectados: ${result.rowCount ?? 0}`,
             );
 
         } catch (error) {
 
             this.logger.error(
-                'Error generando las clases del día',
-                error,
+                'Error al generar las clases del día.',
+                error instanceof Error ? error.stack : String(error),
             );
-
         }
     }
-
 
     // ============================================================
     // FINALIZAR LAS CLASES
     //
-    // Cada minuto busca clases pendientes cuya hora_fin
-    // ya pasó y las cambia a Realizada.
+    // Se ejecuta cada minuto.
+    // Busca las clases pendientes cuya hora de finalización
+    // ya pasó y las cambia a "Realizada".
+    //
+    // Ejecuta el procedimiento PostgreSQL:
+    // CALL finalizar_clases()
     // ============================================================
 
     @Cron('* * * * *')
-    async finalizarClases() {
-
-        this.logger.log(
-            'Verificando clases finalizadas...',
-        );
+    async finalizarClases(): Promise<void> {
 
         try {
 
             const result = await this.databaseService.query(
-                `CALL finalizar_clases()`,
+                'CALL finalizar_clases()',
             );
 
-            if ((result.rowCount ?? 0) > 0) {
-                this.logger.log(
-                    `Clases finalizadas: ${result.rowCount ?? 0}`,
-                );
+            const clasesFinalizadas = result.rowCount ?? 0;
 
+            if (clasesFinalizadas > 0) {
+
+                this.logger.log(
+                    `Clases finalizadas automáticamente: ${clasesFinalizadas}`,
+                );
             }
 
         } catch (error) {
 
             this.logger.error(
-                'Error finalizando las clases',
-                error,
+                'Error al finalizar las clases.',
+                error instanceof Error ? error.stack : String(error),
             );
-
         }
     }
 }

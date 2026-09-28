@@ -8,14 +8,15 @@ export class AsistenciasRepository {
     ) {}
 
     async verAsistencias(idAlumno: number) {
-        const result = await this.databaseService.query(
-            `
-            SELECT * FROM obtener_asistencia_alumno($1) as asistencia
-            `,
-            [idAlumno],
-        );
+      const result = await this.databaseService.query(
+        `
+        SELECT *
+        FROM historial_asistencia_alumno($1)
+        `,
+        [idAlumno],
+      );
 
-        return result;
+      return result.rows;
     }
 
     async verAsistenciaAlumnoClase (idAlumno: number, idClase: number) {
@@ -26,7 +27,7 @@ export class AsistenciasRepository {
             [idAlumno, idClase],
         );
 
-        return result;
+        return result.rows;
     }
 
     async registrarAsistencia(
