@@ -7,13 +7,11 @@ import {
 import { Pool } from 'pg';
 import { ConfigService } from '@nestjs/config';
 
-
 @Injectable()
-export class DatabaseService 
-implements OnModuleInit, OnModuleDestroy {
+export class DatabaseService
+  implements OnModuleInit, OnModuleDestroy {
 
   private pool: Pool;
-
 
   constructor(
     private readonly config: ConfigService,
@@ -33,10 +31,14 @@ implements OnModuleInit, OnModuleDestroy {
 
       max: this.config.get<number>('database.max'),
 
+      // Neon requiere conexión SSL
+      ssl: {
+        rejectUnauthorized: false,
+      },
+
     });
 
   }
-
 
   async onModuleInit() {
 
@@ -50,7 +52,6 @@ implements OnModuleInit, OnModuleDestroy {
 
   }
 
-
   async query(
     sql: string,
     params?: any[],
@@ -63,13 +64,11 @@ implements OnModuleInit, OnModuleDestroy {
 
   }
 
-
   async getConnection() {
 
     return this.pool.connect();
 
   }
-
 
   async onModuleDestroy() {
 
