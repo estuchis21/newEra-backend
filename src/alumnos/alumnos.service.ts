@@ -77,60 +77,52 @@ export class AlumnosService {
   // LOGIN
   // ============================================================
 
-  async login(
-    dto: LoginDto
-  ) {
+  // ============================================================
+// LOGIN
+// ============================================================
 
-    const usuario =
-      await this.alumnosRepository.findByEmail(
-        dto.email
-      );
+  async login(dto: LoginDto) {
+    // 1. Validar que venga la contraseña en el DTO (soportar 'contrasena' o 'password')
+    const contrasenaIngresada = dto.contrasena || (dto as any).password;
+
+    if (!dto.email || !contrasenaIngresada) {
+      throw new BadRequestException('Faltan el email o la contraseña');
+    }
+
+    // 2. Buscar al usuario
+    const usuario = await this.alumnosRepository.findByEmail(dto.email);
 
     if (!usuario) {
-
-      throw new UnauthorizedException(
-        'Email o contraseña incorrectos'
-      );
-
+      throw new UnauthorizedException('Email o contraseña incorrectos');
     }
 
+    // 3. Validar que el usuario recuperado de la BD tenga una contraseña
+    const contrasenaBD = usuario.contrasena || (usuario as any).password;
 
-    const passwordValida =
-      await bcrypt.compare(
-        dto.contrasena,
-        usuario.contrasena
+    if (!contrasenaBD) {
+      throw new UnauthorizedException(
+        'El usuario no tiene una contraseña configurada en la base de datos'
       );
+    }
 
+    // 4. Comparar contraseñas de forma segura
+    const passwordValida = await bcrypt.compare(
+      contrasenaIngresada,
+      contrasenaBD
+    );
 
     if (!passwordValida) {
-
-      throw new UnauthorizedException(
-        'Email o contraseña incorrectos'
-      );
-
+      throw new UnauthorizedException('Email o contraseña incorrectos');
     }
 
-
     return {
-
-      id_usuario:
-        usuario.id_usuario,
-
-      nombre:
-        usuario.nombre,
-
-      apellido:
-        usuario.apellido,
-
-      email:
-        usuario.email,
-
-      id_rol:
-        usuario.id_rol,
-
+      id_usuario: usuario.id_usuario,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      email: usuario.email,
+      id_rol: usuario.id_rol,
     };
   }
-
 
   // ============================================================
   // SOLICITAR RECUPERACIÓN DE CONTRASEÑA
