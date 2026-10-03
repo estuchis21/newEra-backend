@@ -7,85 +7,72 @@ import {
 @Injectable()
 export class PagosRepository {
   constructor(
-    private readonly databaseService:
-      DatabaseService,
+    private readonly databaseService: DatabaseService,
   ) {}
 
   // ============================================================
-  // OBTENER CUOTA + PAQUETE + ALUMNO
+  // OBTENER CUOTA
   // ============================================================
 
-async obtenerCuota(
-  idCuota: number,
-) {
-  const result =
-    await this.databaseService.query(
-      `
-      SELECT
-          c.id_cuota,
-          c.id_alumno,
-          c.mes_anio,
-          c.monto,
-          c.vencimiento,
-          c.estado,
+  async obtenerCuota(idCuota: number) {
+    const result =
+      await this.databaseService.query(
+        `
+        SELECT
+            c.id_cuota,
+            c.id_alumno,
+            c.mes_anio,
+            c.monto,
+            c.vencimiento,
+            c.estado,
+            c.saldo,
+            u.nombre,
+            u.apellido,
+            u.email
+        FROM cuota c
+        INNER JOIN alumnos a
+            ON a.id_alumno = c.id_alumno
+        INNER JOIN users u
+            ON u.id_usuario = a.id_usuario
+        WHERE c.id_cuota = $1
+        `,
+        [idCuota],
+      );
 
-          u.nombre,
-          u.apellido,
-          u.email
+    return result.rows[0] ?? null;
+  }
 
-      FROM cuota c
+  // ============================================================
+  // OBTENER CUOTAS DEL ALUMNO
+  // ============================================================
 
-      INNER JOIN alumnos a
-          ON a.id_alumno = c.id_alumno
+  async obtenerCuotasAlumno(idAlumno: number) {
+    const result =
+      await this.databaseService.query(
+        `
+        SELECT
+            c.id_cuota,
+            c.id_alumno,
+            c.mes_anio,
+            c.monto,
+            c.vencimiento,
+            c.estado,
+            c.saldo
+        FROM cuota c
+        WHERE c.id_alumno = $1
+        ORDER BY c.id_cuota DESC
+        `,
+        [idAlumno],
+      );
 
-      INNER JOIN users u
-          ON u.id_usuario = a.id_usuario
+    return result.rows;
+  }
 
-      WHERE c.id_cuota = $1
-      `,
-      [idCuota],
-    );
-
-  return result.rows[0] ?? null;
-}
-
-
-// ============================================================
-// OBTENER CUOTAS DEL ALUMNO
-// ============================================================
-
-async obtenerCuotasAlumno(
-  idAlumno: number,
-) {
-  const result =
-    await this.databaseService.query(
-      `
-      SELECT
-          c.id_cuota,
-          c.id_alumno,
-          c.mes_anio,
-          c.monto,
-          c.vencimiento,
-          c.estado
-
-      FROM cuota c
-
-      WHERE c.id_alumno = $1
-
-      ORDER BY c.id_cuota DESC
-      `,
-      [idAlumno],
-    );
-
-  return result.rows;
-}
   // ============================================================
   // OBTENER PAGOS DEL ALUMNO
   // ============================================================
 
-  async obtenerPagosAlumno(
-    idAlumno: number,
-  ) {
+  async obtenerPagosAlumno(idAlumno: number) {
     const result =
       await this.databaseService.query(
         `
@@ -99,7 +86,7 @@ async obtenerCuotasAlumno(
   }
 
   // ============================================================
-  // VERIFICAR PAGO EXISTENTE
+  // VERIFICAR SI YA EXISTE EL PAGO DE MERCADO PAGO
   // ============================================================
 
   async existePagoMercadoPago(
@@ -148,8 +135,7 @@ async obtenerCuotasAlumno(
     );
 
     return {
-      mensaje:
-        'Pago registrado correctamente',
+      mensaje: 'Pago registrado correctamente',
     };
   }
 }

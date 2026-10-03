@@ -321,7 +321,7 @@ export class MercadopagoService {
   // OBTENER PAGO
   // ============================================================
 
-  async obtenerPago(
+ async obtenerPago(
     idMercadoPago: number,
   ) {
     return await this.payment.get({

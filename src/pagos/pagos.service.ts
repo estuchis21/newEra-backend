@@ -11,11 +11,9 @@ import { MercadopagoService } from '../integrations/mercadopago/mercadopago.serv
 @Injectable()
 export class PagosService {
   constructor(
-    private readonly pagosRepository:
-      PagosRepository,
+    private readonly pagosRepository: PagosRepository,
 
-    private readonly mercadopagoService:
-      MercadopagoService,
+    private readonly mercadopagoService: MercadopagoService,
   ) {}
 
   // ============================================================
@@ -191,10 +189,8 @@ export class PagosService {
       );
 
       if (
-        error instanceof
-          NotFoundException ||
-        error instanceof
-          InternalServerErrorException
+        error instanceof NotFoundException ||
+        error instanceof InternalServerErrorException
       ) {
         throw error;
       }
@@ -206,286 +202,324 @@ export class PagosService {
   }
 
   // ============================================================
-// PROCESAR WEBHOOK MERCADO PAGO
-// ============================================================
+  // PROCESAR WEBHOOK MERCADO PAGO
+  // ============================================================
 
-// ============================================================
-// PROCESAR WEBHOOK MERCADO PAGO
-// ============================================================
-
-// ============================================================
-// PROCESAR WEBHOOK MERCADO PAGO
-// ============================================================
-
-async procesarWebhookMercadoPago(
-  idMercadoPago: number,
-) {
-  try {
-    console.log('================================');
-    console.log('WEBHOOK MERCADO PAGO');
-    console.log('ID MERCADO PAGO:', idMercadoPago);
-    console.log('================================');
-
-    // ========================================================
-    // VALIDAR ID
-    // ========================================================
-
-    if (
-      !Number.isInteger(idMercadoPago) ||
-      idMercadoPago <= 0
-    ) {
-      console.error(
-        'ID de Mercado Pago inválido:',
-        idMercadoPago,
-      );
-
-      return {
-        success: false,
-        mensaje: 'ID de Mercado Pago inválido',
-      };
-    }
-
-    // ========================================================
-    // OBTENER PAGO REAL DESDE MERCADO PAGO
-    // ========================================================
-
-    const pago =
-      await this.mercadopagoService.obtenerPago(
-        idMercadoPago,
-      );
-
-    console.log(
-      'PAGO OBTENIDO DE MERCADO PAGO:',
-      pago,
-    );
-
-    if (!pago) {
-      console.error(
-        'No se encontró el pago en Mercado Pago',
-      );
-
-      return {
-        success: false,
-        mensaje: 'Pago no encontrado',
-      };
-    }
-
-    // ========================================================
-    // VERIFICAR ESTADO
-    // ========================================================
-
-    const estado =
-      String(pago.status || '').toLowerCase();
-
-    console.log(
-      'ESTADO DEL PAGO:',
-      estado,
-    );
-
-    // Solo registramos pagos aprobados
-    if (estado !== 'approved') {
+  async procesarWebhookMercadoPago(
+    idMercadoPago: number,
+  ) {
+    try {
       console.log(
-        'El pago todavía no está aprobado.',
+        '================================',
       );
 
-      return {
-        success: true,
-        procesado: false,
+      console.log(
+        'PROCESANDO WEBHOOK MERCADO PAGO',
+      );
+
+      console.log(
+        'ID MERCADO PAGO:',
+        idMercadoPago,
+      );
+
+      console.log(
+        '================================',
+      );
+
+      // ========================================================
+      // VALIDAR ID
+      // ========================================================
+
+      if (
+        !Number.isInteger(idMercadoPago) ||
+        idMercadoPago <= 0
+      ) {
+        console.error(
+          'ID DE MERCADO PAGO INVÁLIDO:',
+          idMercadoPago,
+        );
+
+        return {
+          success: false,
+          procesado: false,
+          mensaje:
+            'ID de Mercado Pago inválido',
+        };
+      }
+
+      // ========================================================
+      // OBTENER PAGO REAL DESDE MERCADO PAGO
+      // ========================================================
+
+      const pago =
+        await this.mercadopagoService.obtenerPago(
+          idMercadoPago,
+        );
+
+      console.log(
+        'PAGO OBTENIDO DE MERCADO PAGO:',
+        pago,
+      );
+
+      if (!pago) {
+        console.error(
+          'NO SE ENCONTRÓ EL PAGO',
+        );
+
+        return {
+          success: false,
+          procesado: false,
+          mensaje:
+            'Pago no encontrado',
+        };
+      }
+
+      // ========================================================
+      // VERIFICAR ESTADO
+      // ========================================================
+
+      const estado =
+        String(
+          pago.status || '',
+        ).toLowerCase();
+
+      console.log(
+        'ESTADO DEL PAGO:',
         estado,
-      };
-    }
-
-    // ========================================================
-    // VERIFICAR DUPLICADO
-    // ========================================================
-
-    const yaExiste =
-      await this.pagosRepository.existePagoMercadoPago(
-        idMercadoPago,
       );
 
-    if (yaExiste) {
+      // Solamente registramos pagos aprobados
+
+      if (estado !== 'approved') {
+        console.log(
+          'EL PAGO NO ESTÁ APROBADO.',
+        );
+
+        return {
+          success: true,
+          procesado: false,
+          estado,
+        };
+      }
+
+      // ========================================================
+      // VERIFICAR DUPLICADO
+      // ========================================================
+
+      const yaExiste =
+        await this.pagosRepository.existePagoMercadoPago(
+          idMercadoPago,
+        );
+
+      if (yaExiste) {
+        console.log(
+          'EL PAGO YA ESTÁ REGISTRADO:',
+          idMercadoPago,
+        );
+
+        return {
+          success: true,
+          procesado: false,
+          duplicado: true,
+        };
+      }
+
+      // ========================================================
+      // OBTENER EXTERNAL REFERENCE
+      // ========================================================
+
+      const externalReference =
+        String(
+          pago.external_reference || '',
+        );
+
       console.log(
-        'El pago ya fue registrado:',
-        idMercadoPago,
-      );
-
-      return {
-        success: true,
-        procesado: false,
-        duplicado: true,
-      };
-    }
-
-    // ========================================================
-    // OBTENER EXTERNAL REFERENCE
-    // ========================================================
-
-    const externalReference =
-      String(
-        pago.external_reference || '',
-      );
-
-    console.log(
-      'EXTERNAL REFERENCE:',
-      externalReference,
-    );
-
-    if (
-      !externalReference.startsWith(
-        'cuota-',
-      )
-    ) {
-      console.error(
-        'External reference inválida:',
+        'EXTERNAL REFERENCE:',
         externalReference,
       );
 
-      return {
-        success: false,
-        mensaje:
-          'El pago no contiene una cuota válida',
-      };
-    }
+      if (
+        !externalReference.startsWith(
+          'cuota-',
+        )
+      ) {
+        console.error(
+          'EXTERNAL REFERENCE INVÁLIDA:',
+          externalReference,
+        );
 
-    // ========================================================
-    // OBTENER ID DE CUOTA
-    // ========================================================
+        return {
+          success: false,
+          procesado: false,
+          mensaje:
+            'El pago no contiene una cuota válida',
+        };
+      }
 
-    const idCuota = Number(
-      externalReference.replace(
-        'cuota-',
-        '',
-      ),
-    );
+      // ========================================================
+      // OBTENER ID DE CUOTA
+      // ========================================================
 
-    if (
-      !Number.isInteger(idCuota) ||
-      idCuota <= 0
-    ) {
-      console.error(
-        'ID de cuota inválido:',
+      const idCuota = Number(
+        externalReference.replace(
+          'cuota-',
+          '',
+        ),
+      );
+
+      if (
+        !Number.isInteger(idCuota) ||
+        idCuota <= 0
+      ) {
+        console.error(
+          'ID DE CUOTA INVÁLIDO:',
+          idCuota,
+        );
+
+        return {
+          success: false,
+          procesado: false,
+          mensaje:
+            'ID de cuota inválido',
+        };
+      }
+
+      // ========================================================
+      // OBTENER MONTO
+      // ========================================================
+
+      const monto =
+        Number(
+          pago.transaction_amount ?? 0,
+        );
+
+      if (
+        !Number.isFinite(monto) ||
+        monto <= 0
+      ) {
+        console.error(
+          'MONTO INVÁLIDO:',
+          monto,
+        );
+
+        return {
+          success: false,
+          procesado: false,
+          mensaje:
+            'Monto del pago inválido',
+        };
+      }
+
+      // ========================================================
+      // OBTENER MÉTODO DE PAGO
+      // ========================================================
+
+      const metodoPago =
+        String(
+          pago.payment_method_id ??
+          pago.payment_type_id ??
+          'Mercado Pago',
+        );
+
+      console.log(
+        '================================',
+      );
+
+      console.log(
+        'DATOS A REGISTRAR',
+      );
+
+      console.log(
+        'CUOTA:',
         idCuota,
       );
 
-      return {
-        success: false,
-        mensaje: 'ID de cuota inválido',
-      };
-    }
-
-    // ========================================================
-    // OBTENER MONTO
-    // ========================================================
-
-    const monto = Number(
-      pago.transaction_amount ?? 
-      0,
-    );
-
-    if (!monto || monto <= 0) {
-      console.error(
-        'Monto inválido:',
+      console.log(
+        'MONTO:',
         monto,
       );
 
-      return {
-        success: false,
-        mensaje: 'Monto del pago inválido',
-      };
-    }
-
-    // ========================================================
-    // OBTENER MÉTODO DE PAGO
-    // ========================================================
-
-    const metodoPago =
-      String(
-        pago.payment_method_id ??
-        pago.payment_type_id ??
-        'Mercado Pago',
+      console.log(
+        'ID MERCADO PAGO:',
+        idMercadoPago,
       );
 
-    console.log('DATOS A REGISTRAR:');
+      console.log(
+        'MÉTODO DE PAGO:',
+        metodoPago,
+      );
 
-    console.log(
-      'CUOTA:',
-      idCuota,
-    );
+      console.log(
+        '================================',
+      );
 
-    console.log(
-      'MONTO:',
-      monto,
-    );
+      // ========================================================
+      // REGISTRAR EN BASE DE DATOS
+      // ========================================================
 
-    console.log(
-      'ID MERCADO PAGO:',
-      idMercadoPago,
-    );
+      await this.pagosRepository.registrarPagoCuota(
+        idCuota,
+        monto,
+        idMercadoPago,
+        metodoPago,
+      );
 
-    console.log(
-      'MÉTODO:',
-      metodoPago,
-    );
+      // ========================================================
+      // ÉXITO
+      // ========================================================
 
-    // ========================================================
-    // REGISTRAR PAGO
-    // ========================================================
+      console.log(
+        '================================',
+      );
 
-    await this.pagosRepository.registrarPagoCuota(
-      idCuota,
-      monto,
-      idMercadoPago,
-      metodoPago,
-    );
+      console.log(
+        'PAGO REGISTRADO CORRECTAMENTE',
+      );
 
-    console.log(
-      '================================',
-    );
+      console.log(
+        'CUOTA:',
+        idCuota,
+      );
 
-    console.log(
-      'PAGO REGISTRADO CORRECTAMENTE',
-    );
+      console.log(
+        'MONTO:',
+        monto,
+      );
 
-    console.log(
-      'CUOTA:',
-      idCuota,
-    );
+      console.log(
+        'ID MERCADO PAGO:',
+        idMercadoPago,
+      );
 
-    console.log(
-      'ID MERCADO PAGO:',
-      idMercadoPago,
-    );
+      console.log(
+        '================================',
+      );
 
-    console.log(
-      '================================',
-    );
+      return {
+        success: true,
+        procesado: true,
+        idCuota,
+        idMercadoPago,
+        monto,
+        metodoPago,
+      };
 
-    return {
-      success: true,
-      procesado: true,
-      idCuota,
-      idMercadoPago,
-      monto,
-      metodoPago,
-    };
+    } catch (error) {
+      console.error(
+        '================================',
+      );
 
-  } catch (error) {
-    console.error(
-      '================================',
-    );
+      console.error(
+        'ERROR PROCESANDO WEBHOOK',
+      );
 
-    console.error(
-      'ERROR PROCESANDO WEBHOOK',
-    );
+      console.error(error);
 
-    console.error(error);
+      console.error(
+        '================================',
+      );
 
-    console.error(
-      '================================',
-    );
-
-    throw error;
+      throw error;
+    }
   }
-}
 }
