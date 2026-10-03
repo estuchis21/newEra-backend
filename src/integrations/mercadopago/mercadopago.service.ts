@@ -29,15 +29,6 @@ export class MercadopagoService {
       );
     }
 
-    /*
-     * Para TEST:
-     *
-     * El Access Token de testing de Mercado Pago
-     * comienza normalmente con APP_USR-
-     *
-     * NO uses el Access Token de producción.
-     */
-
     console.log('================================');
     console.log('MERCADO PAGO');
     console.log(
@@ -74,11 +65,13 @@ export class MercadopagoService {
     try {
       const frontendUrl = this.configService
         .get<string>('FRONTEND_URL')
-        ?.trim();
+        ?.trim()
+        .replace(/\/$/, '');
 
       const backendUrl = this.configService
         .get<string>('BACKEND_URL')
-        ?.trim();
+        ?.trim()
+        .replace(/\/$/, '');
 
       if (!frontendUrl) {
         throw new InternalServerErrorException(
@@ -107,6 +100,10 @@ export class MercadopagoService {
         );
       }
 
+      // ========================================================
+      // PREFERENCIA
+      // ========================================================
+
       const body: any = {
         items: [
           {
@@ -132,8 +129,16 @@ export class MercadopagoService {
           email: String(email),
         },
 
+        /*
+         * Lo usamos después en el webhook
+         * para saber qué cuota se pagó.
+         */
         external_reference:
           `cuota-${idCuota}`,
+
+        // ======================================================
+        // URLS DE RETORNO
+        // ======================================================
 
         back_urls: {
           success:
@@ -146,24 +151,39 @@ export class MercadopagoService {
             `${frontendUrl}/pago/pendiente`,
         },
 
+        // ======================================================
+        // WEBHOOK
+        // ======================================================
+
+        /*
+         * IMPORTANTE:
+         *
+         * Nest tiene:
+         *
+         * /api
+         *
+         * como prefijo global.
+         *
+         * Por eso el webhook real es:
+         *
+         * /api/pagos/webhook
+         */
+
         notification_url:
-          `${backendUrl}/pagos/webhook`,
+          `${backendUrl}/api/pagos/webhook`,
       };
 
-      /*
-       * IMPORTANTE:
-       *
-       * Si estás trabajando localmente con
-       * http://localhost, NO agregamos auto_return.
-       *
-       * auto_return requiere HTTPS.
-       */
+      // ========================================================
+      // AUTO RETURN
+      // ========================================================
 
-      if (
-        frontendUrl.startsWith('https://')
-      ) {
+      if (frontendUrl.startsWith('https://')) {
         body.auto_return = 'approved';
       }
+
+      // ========================================================
+      // LOGS
+      // ========================================================
 
       console.log(
         '================================',
@@ -204,13 +224,31 @@ export class MercadopagoService {
       );
 
       console.log(
+        'WEBHOOK:',
+        `${backendUrl}/api/pagos/webhook`,
+      );
+
+      console.log(
+        'EXTERNAL REFERENCE:',
+        `cuota-${idCuota}`,
+      );
+
+      console.log(
         '================================',
       );
+
+      // ========================================================
+      // CREAR PREFERENCIA EN MERCADO PAGO
+      // ========================================================
 
       const response =
         await this.preference.create({
           body,
         });
+
+      // ========================================================
+      // RESPUESTA
+      // ========================================================
 
       console.log(
         '================================',
@@ -238,13 +276,6 @@ export class MercadopagoService {
       console.log(
         '================================',
       );
-
-      /*
-       * Para Checkout Pro, usamos init_point.
-       *
-       * En pruebas, Mercado Pago recomienda realizar
-       * la compra con una cuenta de comprador de prueba.
-       */
 
       return {
         success: true,
