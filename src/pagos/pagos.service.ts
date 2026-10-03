@@ -379,8 +379,7 @@ async procesarWebhookMercadoPago(
     // ========================================================
 
     const monto = Number(
-      pago.transaction_amount ??
-      pago.amount ??
+      pago.transaction_amount ?? 
       0,
     );
 
