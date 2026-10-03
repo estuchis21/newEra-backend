@@ -209,6 +209,14 @@ export class PagosService {
 // PROCESAR WEBHOOK MERCADO PAGO
 // ============================================================
 
+// ============================================================
+// PROCESAR WEBHOOK MERCADO PAGO
+// ============================================================
+
+// ============================================================
+// PROCESAR WEBHOOK MERCADO PAGO
+// ============================================================
+
 async procesarWebhookMercadoPago(
   idMercadoPago: number,
 ) {
@@ -372,7 +380,7 @@ async procesarWebhookMercadoPago(
 
     const monto = Number(
       pago.transaction_amount ??
-      pago.monto ??
+      pago.amount ??
       0,
     );
 
@@ -426,59 +434,59 @@ async procesarWebhookMercadoPago(
     // ========================================================
 
     await this.pagosRepository.registrarPagoCuota(
-        idCuota,
-        monto,
-        idMercadoPago,
-        metodoPago,
-      );
+      idCuota,
+      monto,
+      idMercadoPago,
+      metodoPago,
+    );
 
-      console.log(
-        '================================',
-      );
+    console.log(
+      '================================',
+    );
 
-      console.log(
-        'PAGO REGISTRADO CORRECTAMENTE',
-      );
+    console.log(
+      'PAGO REGISTRADO CORRECTAMENTE',
+    );
 
-      console.log(
-        'CUOTA:',
-        idCuota,
-      );
+    console.log(
+      'CUOTA:',
+      idCuota,
+    );
 
-      console.log(
-        'ID MERCADO PAGO:',
-        idMercadoPago,
-      );
+    console.log(
+      'ID MERCADO PAGO:',
+      idMercadoPago,
+    );
 
-      console.log(
-        '================================',
-      );
+    console.log(
+      '================================',
+    );
 
-      return {
-        success: true,
-        procesado: true,
-        idCuota,
-        idMercadoPago,
-        monto,
-        metodoPago,
-      };
+    return {
+      success: true,
+      procesado: true,
+      idCuota,
+      idMercadoPago,
+      monto,
+      metodoPago,
+    };
 
-    } catch (error) {
-      console.error(
-        '================================',
-      );
+  } catch (error) {
+    console.error(
+      '================================',
+    );
 
-      console.error(
-        'ERROR PROCESANDO WEBHOOK',
-      );
+    console.error(
+      'ERROR PROCESANDO WEBHOOK',
+    );
 
-      console.error(error);
+    console.error(error);
 
-      console.error(
-        '================================',
-      );
+    console.error(
+      '================================',
+    );
 
-      throw error;
-    }
+    throw error;
   }
+}
 }
