@@ -15,88 +15,70 @@ export class PagosRepository {
   // OBTENER CUOTA + PAQUETE + ALUMNO
   // ============================================================
 
-  async obtenerCuota(
-    idCuota: number,
-  ) {
-    const result =
-      await this.databaseService.query(
-        `
-        SELECT
-            c.id_cuota,
-            c.id_alumno,
-            c.id_paquete,
-            c.mes_anio,
-            c.monto,
-            c.vencimiento,
-            c.estado,
-            c.saldo,
+async obtenerCuota(
+  idCuota: number,
+) {
+  const result =
+    await this.databaseService.query(
+      `
+      SELECT
+          c.id_cuota,
+          c.id_alumno,
+          c.mes_anio,
+          c.monto,
+          c.vencimiento,
+          c.estado,
 
-            p.nombre AS paquete_nombre,
-            p.cantidad_creditos AS paquete_creditos,
-            p.precio AS paquete_precio,
+          u.nombre,
+          u.apellido,
+          u.email
 
-            u.nombre,
-            u.apellido,
-            u.email
+      FROM cuota c
 
-        FROM cuota c
+      INNER JOIN alumnos a
+          ON a.id_alumno = c.id_alumno
 
-        INNER JOIN alumnos a
-            ON a.id_alumno = c.id_alumno
+      INNER JOIN users u
+          ON u.id_usuario = a.id_usuario
 
-        INNER JOIN users u
-            ON u.id_usuario = a.id_usuario
+      WHERE c.id_cuota = $1
+      `,
+      [idCuota],
+    );
 
-        INNER JOIN paquetes_creditos p
-            ON p.id_paquete = c.id_paquete
+  return result.rows[0] ?? null;
+}
 
-        WHERE c.id_cuota = $1
-        `,
-        [idCuota],
-      );
 
-    return result.rows[0] ?? null;
-  }
+// ============================================================
+// OBTENER CUOTAS DEL ALUMNO
+// ============================================================
 
-  // ============================================================
-  // OBTENER CUOTAS DEL ALUMNO
-  // ============================================================
+async obtenerCuotasAlumno(
+  idAlumno: number,
+) {
+  const result =
+    await this.databaseService.query(
+      `
+      SELECT
+          c.id_cuota,
+          c.id_alumno,
+          c.mes_anio,
+          c.monto,
+          c.vencimiento,
+          c.estado
 
-  async obtenerCuotasAlumno(
-    idAlumno: number,
-  ) {
-    const result =
-      await this.databaseService.query(
-        `
-        SELECT
-            c.id_cuota,
-            c.id_alumno,
-            c.id_paquete,
-            c.mes_anio,
-            c.monto,
-            c.vencimiento,
-            c.estado,
-            c.saldo,
+      FROM cuota c
 
-            p.nombre AS paquete_nombre,
-            p.cantidad_creditos AS paquete_creditos,
-            p.precio AS paquete_precio
+      WHERE c.id_alumno = $1
 
-        FROM cuota c
+      ORDER BY c.id_cuota DESC
+      `,
+      [idAlumno],
+    );
 
-        INNER JOIN paquetes_creditos p
-            ON p.id_paquete = c.id_paquete
-
-        WHERE c.id_alumno = $1
-
-        ORDER BY c.id_cuota DESC
-        `,
-        [idAlumno],
-      );
-
-    return result.rows;
-  }
-
+  return result.rows;
+}
   // ============================================================
   // OBTENER PAGOS DEL ALUMNO
   // ============================================================
