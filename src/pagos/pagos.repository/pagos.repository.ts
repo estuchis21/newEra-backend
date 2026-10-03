@@ -25,7 +25,6 @@ export class PagosRepository {
             c.monto,
             c.vencimiento,
             c.estado,
-            c.saldo,
             u.nombre,
             u.apellido,
             u.email
@@ -56,8 +55,7 @@ export class PagosRepository {
             c.mes_anio,
             c.monto,
             c.vencimiento,
-            c.estado,
-            c.saldo
+            c.estado
         FROM cuota c
         WHERE c.id_alumno = $1
         ORDER BY c.id_cuota DESC
