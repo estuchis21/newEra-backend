@@ -125,8 +125,8 @@ export class MercadopagoService {
         ],
 
         payer: {
-          name: 'Test Buyer',
-          email: 'test@testuser.com',
+          name: String(nombre || 'Alumno'),
+          email: String(email),
         },
 
         /*
