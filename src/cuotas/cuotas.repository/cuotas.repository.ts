@@ -23,8 +23,7 @@ export class CuotasRepository {
           mes_anio,
           monto,
           vencimiento,
-          estado,
-          saldo
+          estado
         )
 
         VALUES (
@@ -49,9 +48,7 @@ export class CuotasRepository {
             10
           ),
 
-          'Pendiente',
-
-          $2
+          'Pendiente'
         )
 
         RETURNING *
@@ -107,7 +104,6 @@ export class CuotasRepository {
           c.monto,
           c.vencimiento,
           c.estado,
-          c.saldo,
 
           SPLIT_PART(
             c.mes_anio,
@@ -185,9 +181,7 @@ export class CuotasRepository {
           c.vencimiento
             AS fecha_vencimiento,
 
-          c.estado,
-
-          c.saldo
+          c.estado
 
         FROM cuota c
 
