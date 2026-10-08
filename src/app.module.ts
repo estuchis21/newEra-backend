@@ -7,7 +7,7 @@ import { AppService } from './app.service';
 
 import databaseConfig from './database/database.config';
 import { DatabaseModule } from './database/database.module';
-
+import { AdministracionModule } from './administracion/administracion.module.ts';
 import { AlumnosModule } from './alumnos/alumnos.module';
 import { AsistenciasModule } from './asistencias/asistencias.module';
 import { BoletinesModule } from './boletines/boletines.module';
