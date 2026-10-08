@@ -13,14 +13,13 @@ export class CuotasRepository {
 
   async crearCuota(
     idAlumno: number,
-    idPaquete: number,
+    monto: number,
   ) {
     const result =
       await this.databaseService.query(
         `
         INSERT INTO cuota (
           id_alumno,
-          id_paquete,
           mes_anio,
           monto,
           vencimiento,
@@ -28,16 +27,15 @@ export class CuotasRepository {
           saldo
         )
 
-        SELECT
+        VALUES (
           $1,
-          p.id_paquete,
 
           TO_CHAR(
             CURRENT_DATE,
             'MM/YYYY'
           ),
 
-          p.precio,
+          $2,
 
           MAKE_DATE(
             EXTRACT(
@@ -53,38 +51,20 @@ export class CuotasRepository {
 
           'Pendiente',
 
-          p.precio
-
-        FROM paquetes_creditos p
-
-        WHERE p.id_paquete = $2
-
-          AND p.activo = TRUE
-
-          AND NOT EXISTS (
-            SELECT 1
-            FROM cuota c
-
-            WHERE c.id_alumno = $1
-
-              AND c.mes_anio =
-                  TO_CHAR(
-                    CURRENT_DATE,
-                    'MM/YYYY'
-                  )
-          )
+          $2
+        )
 
         RETURNING *
         `,
         [
           idAlumno,
-          idPaquete,
+          monto,
         ],
       );
 
     if (result.rows.length === 0) {
       throw new Error(
-        'El paquete no existe, está inactivo o el alumno ya tiene una cuota para este mes',
+        'No se pudo crear la cuota',
       );
     }
 
@@ -104,7 +84,6 @@ export class CuotasRepository {
 
     return {
       success: true,
-
       mensaje:
         'Cuotas del mes generadas correctamente',
     };
@@ -124,12 +103,26 @@ export class CuotasRepository {
 
           c.id_cuota,
           c.id_alumno,
-          c.id_paquete,
           c.mes_anio,
           c.monto,
           c.vencimiento,
           c.estado,
           c.saldo,
+
+          SPLIT_PART(
+            c.mes_anio,
+            '/',
+            1
+          )::INTEGER AS mes,
+
+          SPLIT_PART(
+            c.mes_anio,
+            '/',
+            2
+          )::INTEGER AS anio,
+
+          c.vencimiento
+            AS fecha_vencimiento,
 
           u.id_user,
           u.nombre,
@@ -170,11 +163,30 @@ export class CuotasRepository {
 
           c.id_cuota,
           c.id_alumno,
-          c.id_paquete,
+
           c.mes_anio,
+
+          SPLIT_PART(
+            c.mes_anio,
+            '/',
+            1
+          )::INTEGER AS mes,
+
+          SPLIT_PART(
+            c.mes_anio,
+            '/',
+            2
+          )::INTEGER AS anio,
+
           c.monto,
+
           c.vencimiento,
+
+          c.vencimiento
+            AS fecha_vencimiento,
+
           c.estado,
+
           c.saldo
 
         FROM cuota c
