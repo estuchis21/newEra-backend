@@ -7,7 +7,7 @@ import { AppService } from './app.service';
 
 import databaseConfig from './database/database.config';
 import { DatabaseModule } from './database/database.module';
-import { AdministracionModule } from './administracion/administracion.module.ts';
+import { AdministracionModule } from './administracion/administracion.module';
 import { AlumnosModule } from './alumnos/alumnos.module';
 import { AsistenciasModule } from './asistencias/asistencias.module';
 import { BoletinesModule } from './boletines/boletines.module';
@@ -37,7 +37,7 @@ import { MercadopagoModule } from './integrations/mercadopago/mercadopago.module
         ScheduleModule.forRoot(),
 
         DatabaseModule,
-
+        AdministracionModule,
         AlumnosModule,
         ProfesoresModule,
         DisciplinasModule,
