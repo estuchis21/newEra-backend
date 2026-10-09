@@ -37,15 +37,13 @@ export class PagosRepository {
         u.email,
         u.nombre,
         u.apellido,
-        pc.creditos AS paquete_creditos,
-        pc.nombre AS paquete_nombre
+        NULL::integer AS paquete_creditos,
+        NULL::varchar AS paquete_nombre
       FROM cuota c
       INNER JOIN alumnos a
         ON a.id_alumno = c.id_alumno
       INNER JOIN users u
         ON u.id_usuario = a.id_usuario
-      LEFT JOIN paquetes_creditos pc
-        ON pc.id_paquete = c.id_paquete
       WHERE c.id_cuota = $1
       LIMIT 1
       `,
@@ -54,6 +52,8 @@ export class PagosRepository {
 
     return result.rows[0] ?? null;
   }
+
+
 
   /**
    * Comprueba si el identificador externo ya está registrado.
