@@ -20,6 +20,7 @@ import { InscripcionesModule } from './inscripciones/inscripciones.module';
 import { PagosModule } from './pagos/pagos.module';
 import { ProfesoresModule } from './profesores/profesores.module';
 import { RetiroMenoresModule } from './retiro-menores/retiro-menores.module';
+import { CreditosModule } from './creditos/creditos.module';
 
 import { MercadopagoModule } from './integrations/mercadopago/mercadopago.module';
 
@@ -50,7 +51,7 @@ import { MercadopagoModule } from './integrations/mercadopago/mercadopago.module
         CuotasModule,
         PagosModule,
         RetiroMenoresModule,
-
+        CreditosModule,
         MercadopagoModule,
     ],
 
