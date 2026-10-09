@@ -457,10 +457,10 @@ export class PagosService {
       // REGISTRAR EN BASE DE DATOS
       // ========================================================
 
-      await this.pagosRepository.registrarPagoCuota(
+      await this.pagosRepository.registrarPago(
         idCuota,
         monto,
-        idMercadoPago,
+        String(idMercadoPago),
         metodoPago,
       );
 

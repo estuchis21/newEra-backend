@@ -5,7 +5,7 @@ import {
   ParseIntPipe,
   Query,
 } from '@nestjs/common';
-import { AdministracionService } from './administracion.service';
+import { AdministracionService} from './administracion.service';
 
 @Controller('administracion')
 export class AdministracionController {

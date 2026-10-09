@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 
 @Injectable()
-export class AdministracionRepository {
+export class AdministracionService {
   constructor(private readonly database: DatabaseService) {}
 
   async verificarAdministrador(idUsuario: number): Promise<void> {
