@@ -25,20 +25,10 @@ export class MercadopagoController {
 
   @Post('crear-preferencia')
   async crearPreferencia(
-    @Body()
-    body: {
-      idCuota: number;
-      monto: number;
-      nombre: string;
-      email: string;
-    },
+    @Body() body: { idCuota: number },
   ) {
-    return await this.mercadopagoService.crearPreferencia(
+    return this.pagosService.crearPago(
       Number(body.idCuota),
-      Number(body.monto),
-      body.nombre,
-      body.email,
-      `Pago de cuota #${body.idCuota}`,
     );
   }
 

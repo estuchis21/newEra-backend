@@ -100,8 +100,6 @@ export class PagosRepository {
       ],
     );
 
-    // El procedimiento es un CALL y no devuelve id_pago.
-    // Consultamos el registro después de ejecutarlo.
     const result = await this.databaseService.query(
       `
       SELECT id_pago

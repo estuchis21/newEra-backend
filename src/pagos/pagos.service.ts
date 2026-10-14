@@ -460,8 +460,8 @@ export class PagosService {
       await this.pagosRepository.registrarPago(
         idCuota,
         monto,
-        String(idMercadoPago),
         metodoPago,
+        idMercadoPago,
       );
 
       // ========================================================
