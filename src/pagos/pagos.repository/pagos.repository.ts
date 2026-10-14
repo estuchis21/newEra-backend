@@ -17,15 +17,6 @@ export class PagosRepository {
     private readonly databaseService: DatabaseService,
   ) {}
 
-  /**
-   * Obtiene la cuota y los datos necesarios para crear
-   * la preferencia de pago de Mercado Pago.
-   *
-   * IMPORTANTE:
-   * Esta consulta supone que alumnos.id_usuario relaciona
-   * alumnos con users, y que cuota.id_paquete relaciona
-   * cuota con paquetes_creditos.
-   */
   async obtenerCuota(
     idCuota: number,
   ): Promise<CuotaParaPago | null> {
@@ -44,7 +35,7 @@ export class PagosRepository {
         ON a.id_alumno = c.id_alumno
       INNER JOIN users u
         ON u.id_usuario = a.id_usuario
-      WHERE c.id_cuota = $1
+      WHERE c.id_cuota = $1::integer
       LIMIT 1
       `,
       [idCuota],
@@ -53,25 +44,12 @@ export class PagosRepository {
     return result.rows[0] ?? null;
   }
 
-
-
-  /**
-   * Comprueba si el identificador externo ya está registrado.
-   * La referencia se compara como texto para conservar su formato.
-   *
-   * Se presupone que pago.referencia almacena la referencia
-   * enviada a registrar_pago.
-   */
   async existePagoMercadoPago(
-    idMercadoPago: number,
+    idMercadoPago: number | string,
   ): Promise<boolean> {
     const result = await this.databaseService.query(
       `
-      SELECT EXISTS (
-        SELECT 1
-        FROM pago
-        WHERE referencia = $1
-      ) AS existe
+      SELECT existe_pago_mercado_pago($1::bigint) AS existe
       `,
       [String(idMercadoPago)],
     );
@@ -79,33 +57,67 @@ export class PagosRepository {
     return result.rows[0]?.existe === true;
   }
 
+  async obtenerPagoMercadoPago(
+    idMercadoPago: number | string,
+  ) {
+    const result = await this.databaseService.query(
+      `
+      SELECT *
+      FROM obtener_pago_mercado_pago($1::bigint)
+      `,
+      [String(idMercadoPago)],
+    );
+
+    return result.rows[0] ?? null;
+  }
+
   /**
-   * Registra el pago mediante la función SQL existente.
-   * El orden de los argumentos coincide con:
-   * registrar_pago(idCuota, monto, metodoPago, referencia).
+   * Registra un pago usando el procedimiento real de PostgreSQL.
+   *
+   * Se conserva el orden de los argumentos del método:
+   * (idCuota, monto, metodoPago, idMercadoPago).
    */
   async registrarPago(
     idCuota: number,
     monto: number,
     metodoPago: string,
-    referencia: string | null = null,
+    idMercadoPago: number | string,
   ) {
-    const result = await this.databaseService.query(
+    await this.databaseService.query(
       `
-      SELECT registrar_pago($1, $2, $3, $4) AS id_pago
+      CALL registrar_pago_cuota(
+        $1::integer,
+        $2::numeric,
+        $3::bigint,
+        $4::varchar
+      )
       `,
-      [idCuota, monto, metodoPago, referencia],
+      [
+        idCuota,
+        monto,
+        String(idMercadoPago),
+        metodoPago,
+      ],
     );
 
-    return result.rows[0];
+    // El procedimiento es un CALL y no devuelve id_pago.
+    // Consultamos el registro después de ejecutarlo.
+    const result = await this.databaseService.query(
+      `
+      SELECT id_pago
+      FROM pago
+      WHERE id_mercado_pago = $1::bigint
+      LIMIT 1
+      `,
+      [String(idMercadoPago)],
+    );
+
+    return result.rows[0] ?? null;
   }
 
-  /**
-   * Anula un pago mediante el procedimiento SQL existente.
-   */
   async anularPago(idPago: number) {
     await this.databaseService.query(
-      `CALL anular_pago($1)`,
+      `CALL anular_pago($1::integer)`,
       [idPago],
     );
 
