@@ -143,13 +143,14 @@ export class AsistenciasRepository {
       [idAlumno, idClase],
     );
 
+    const eliminada = (result.rowCount ?? 0) > 0;
+
     return {
       success: true,
-      eliminada: result.rowCount > 0,
-      message:
-        result.rowCount > 0
-          ? 'Asistencia eliminada correctamente.'
-          : 'No se encontró la asistencia indicada.',
+      eliminada,
+      message: eliminada
+        ? 'Asistencia eliminada correctamente.'
+        : 'No se encontró la asistencia indicada.',
     };
   }
 }

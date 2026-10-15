@@ -55,13 +55,13 @@ export class CuotasService {
   // ============================================================
 
   @Cron('0 0 1 * *')
-  async generarCuotasAutomaticamente() {
+  async generarCuotasAutomaticamente(monto: number) {
     this.logger.log(
       'Generando cuotas mensuales...',
     );
 
     try {
-      await this.cuotasRepository.generarCuotasMes();
+      await this.cuotasRepository.generarCuotasMes(monto);
 
       this.logger.log(
         'Cuotas mensuales generadas correctamente',

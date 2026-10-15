@@ -97,12 +97,13 @@ export class HorariosRepository {
       [idHorario],
     );
 
+    const eliminado = (result.rowCount ?? 0) > 0;
+
     return {
-      success: result.rowCount > 0,
-      message:
-        result.rowCount > 0
-          ? 'Horario eliminado correctamente.'
-          : 'No se encontró el horario.',
+      success: eliminado,
+      message: eliminado
+        ? 'Horario eliminado correctamente.'
+        : 'No se encontró el horario.',
     };
   }
 }
