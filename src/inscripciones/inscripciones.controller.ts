@@ -8,6 +8,8 @@ import {
   Delete,
 } from '@nestjs/common';
 
+import { CrearInscripcionDto } from './dto/crear-inscripciones.dto';
+
 import { InscripcionesService } from './inscripciones.service';
 
 @Controller('inscripciones')
@@ -17,13 +19,10 @@ export class InscripcionesController {
   ) {}
 
   @Post()
-  crearInscripcion(
-    @Body('id_alumno', ParseIntPipe) idAlumno: number,
-    @Body('id_grupo', ParseIntPipe) idGrupo: number,
-  ) {
+  crearInscripcion(@Body() dto: CrearInscripcionDto) {
     return this.inscripcionesService.crearInscripcion(
-      idAlumno,
-      idGrupo,
+      dto.id_alumno,
+      dto.id_grupo,
     );
   }
 
