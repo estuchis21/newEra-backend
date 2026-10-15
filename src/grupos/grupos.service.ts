@@ -51,7 +51,7 @@ export class GruposService {
 
     async obtenerGrupos(id_alumno: number) {
 
-        const clases = await this.gruposRepository.obtenerGrupos(
+        const clases = await this.gruposRepository.obtenerGruposPorAlumno(
             id_alumno,
         );
 

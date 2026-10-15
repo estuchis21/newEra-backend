@@ -1,14 +1,14 @@
 import {
-    Body,
-    Controller,
-    Get,
-    Param,
-    ParseIntPipe,
-    Post,
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
 } from '@nestjs/common';
 
+import { ConflictException } from '@nestjs/common';
 import { AsistenciasService } from './asistencias.service';
-import { ConflictException, BadRequestException } from '@nestjs/common';
 
 
 @Controller('asistencias')
@@ -163,6 +163,19 @@ export class AsistenciasController {
       body.observaciones?.trim() || '',
     );
   }
+
+  
+  @Get('grupo/:idGrupo/profesor/:idProfesor')
+  async obtenerAsistenciasPorGrupoYProfesor(
+      @Param('idGrupo', ParseIntPipe) idGrupo: number,
+      @Param('idProfesor', ParseIntPipe) idProfesor: number,
+  ) {
+      return this.asistenciasService.obtenerAsistenciasPorGrupoYProfesor(
+          idGrupo,
+          idProfesor,
+      );
+  }
+
 }
 
 

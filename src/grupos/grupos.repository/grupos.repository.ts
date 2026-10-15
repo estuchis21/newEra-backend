@@ -64,39 +64,25 @@ export class GruposRepository {
     return result.rows[0] ?? null;
   }
 
-  async obtenerGrupos(idAlumno: number) {
-    const result = await this.databaseService.query(
-      `
-      SELECT
-        g.id_grupo,
-        g.id_disciplina,
-        d.disciplina,
-        g.id_profesor,
-        u.nombre AS nombre_profesor,
-        u.apellido AS apellido_profesor,
-        g.nivel,
-        g.cupo_max,
-        g.activo,
-        i.id_inscripcion,
-        i.fecha_inscripcion,
-        i.estado AS estado_inscripcion
-      FROM inscripcion i
-      INNER JOIN grupos g ON g.id_grupo = i.id_grupo
-      INNER JOIN disciplinas d ON d.id_disciplina = g.id_disciplina
-      INNER JOIN profesores p ON p.id_profesor = g.id_profesor
-      INNER JOIN users u ON u.id_usuario = p.id_usuario
-      WHERE i.id_alumno = $1
-      ORDER BY d.disciplina, g.nivel
-      `,
-      [idAlumno],
-    );
+  async obtenerGruposPorAlumno(idAlumno: number) {
+      const query = `
+          SELECT
+              g.*,
+              i.fecha_inscripcion,
+              i.estado AS estado_inscripcion
+          FROM inscripcion i
+          INNER JOIN grupos g
+              ON g.id_grupo = i.id_grupo
+          WHERE i.id_alumno = $1
+            AND i.estado = 'Activo'
+          ORDER BY g.id_grupo;
+      `;
 
-    return result.rows;
+      const result = await this.databaseService.query(query, [idAlumno]);
+
+      return result.rows;
   }
 
-  async gruposPorAlumno(idAlumno: number) {
-    return this.obtenerGrupos(idAlumno);
-  }
 
   async sesionesPorAlumno(
     idAlumno: number,

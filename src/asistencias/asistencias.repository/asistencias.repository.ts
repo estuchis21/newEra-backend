@@ -132,6 +132,54 @@ export class AsistenciasRepository {
     );
   }
 
+  
+  async obtenerAsistenciasPorGrupoYProfesor(
+      idGrupo: number,
+      idProfesor: number,
+  ) {
+      const query = `
+          SELECT
+              a.id_asistencia,
+              a.id_alumno,
+              a.id_clase,
+              a.estado AS estado_asistencia,
+              a.observaciones,
+              c.fecha,
+              c.hora_inicio,
+              c.hora_fin,
+              g.id_grupo,
+              p.id_profesor,
+              up.nombre AS nombre_profesor,
+              up.apellido AS apellido_profesor,
+              ua.nombre AS nombre_alumno,
+              ua.apellido AS apellido_alumno
+          FROM asistencia a
+          INNER JOIN clase c
+              ON c.id_clase = a.id_clase
+          INNER JOIN grupos g
+              ON g.id_grupo = c.id_grupo
+          INNER JOIN profesores p
+              ON p.id_profesor = g.id_profesor
+          INNER JOIN users up
+              ON up.id_usuario = p.id_usuario
+          INNER JOIN alumnos al
+              ON al.id_alumno = a.id_alumno
+          INNER JOIN users ua
+              ON ua.id_usuario = al.id_usuario
+          WHERE g.id_grupo = $1
+            AND p.id_profesor = $2
+          ORDER BY c.fecha DESC, ua.apellido, ua.nombre;
+      `;
+
+      const result = await this.databaseService.query(query, [
+          idGrupo,
+          idProfesor,
+      ]);
+
+      return result.rows;
+  }
+
+
   async eliminarAsistencia(idAlumno: number, idClase: number) {
     const result = await this.databaseService.query(
       `

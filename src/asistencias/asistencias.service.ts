@@ -37,4 +37,25 @@ export class AsistenciasService {
         observaciones,
         );
     }
+
+    async obtenerAsistenciasPorGrupoYProfesor(
+        idGrupo: number,
+        idProfesor: number,
+    ) {
+        if (
+            !Number.isInteger(Number(idGrupo)) ||
+            Number(idGrupo) <= 0 ||
+            !Number.isInteger(Number(idProfesor)) ||
+            Number(idProfesor) <= 0
+        ) {
+            throw new BadRequestException(
+                'El ID del grupo o del profesor no es válido',
+            );
+        }
+
+        return this.asistenciasRepository.obtenerAsistenciasPorGrupoYProfesor(
+            Number(idGrupo),
+            Number(idProfesor),
+        );
+    }
 }
