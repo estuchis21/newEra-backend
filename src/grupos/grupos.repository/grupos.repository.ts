@@ -15,22 +15,12 @@ export class GruposRepository {
     cupoMax: number,
   ) {
     const result = await this.databaseService.query(
-      `
-      CALL crear_grupo($1, $2, $3, $4, NULL)
-      `,
+      `SELECT public.crear_grupo($1, $2, $3, $4) AS id_grupo`,
       [idDisciplina, idProfesor, nivel, cupoMax],
     );
 
-    const idGrupo = result.rows?.[0]?.p_id_grupo;
-
-    if (!idGrupo) {
-      throw new Error(
-        'El procedimiento crear_grupo no devolvió el ID del grupo.',
-      );
-    }
-
     return {
-      id_grupo: Number(idGrupo),
+      id_grupo: Number(result.rows[0].id_grupo),
     };
   }
 
