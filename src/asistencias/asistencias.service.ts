@@ -1,73 +1,86 @@
-import { Injectable } from '@nestjs/common';
-import { AsistenciasRepository } from './asistencias.repository/asistencias.repository';
-import { BadRequestException } from '@nestjs/common';
+
+import {
+  Injectable,
+  BadRequestException,
+} from '@nestjs/common';
+
+import { AsistenciasRepository } from
+  './asistencias.repository/asistencias.repository';
 
 @Injectable()
 export class AsistenciasService {
-    constructor(
-        private readonly asistenciasRepository: AsistenciasRepository,
-    ) {}
-    async verAsistencias(idAlumno: number) {
-        if (!Number.isInteger(idAlumno) || idAlumno <= 0) {
-            throw new Error('El ID del alumno no es válido');
-        }
-        return this.asistenciasRepository.verAsistencias(idAlumno);
+  constructor(
+    private readonly asistenciasRepository: AsistenciasRepository,
+  ) {}
+
+  async verAsistencias(idAlumno: number) {
+    this.validarId(idAlumno, 'id_alumno');
+
+    return this.asistenciasRepository.verAsistencias(idAlumno);
+  }
+
+  async verAsistenciaAlumnoClase(
+    idAlumno: number,
+    idClase: number,
+  ) {
+    this.validarId(idAlumno, 'id_alumno');
+    this.validarId(idClase, 'id_clase');
+
+    return this.asistenciasRepository.verAsistenciaAlumnoClase(
+      idAlumno,
+      idClase,
+    );
+  }
+
+  async registrarAsistencia(
+    idAlumno: number,
+    idClase: number,
+    estado: string,
+    observaciones: string,
+  ) {
+    this.validarId(idAlumno, 'id_alumno');
+    this.validarId(idClase, 'id_clase');
+
+    if (!['presente', 'ausente'].includes(estado)) {
+      throw new BadRequestException(
+        'El estado debe ser "presente" o "ausente".',
+      );
     }
 
-    async verAsistenciaAlumnoClase(idAlumno: number, idClase: number) {
-        if (!Number.isInteger(idAlumno) || idAlumno <= 0) {
-            throw new Error('El ID del alumno no es válido');
-        }
-        if (!Number.isInteger(idClase) || idClase <= 0) {
-            throw new Error('El ID de la clase no es válido');
-        }
-        return this.asistenciasRepository.verAsistenciaAlumnoClase(idAlumno, idClase);
-    }
-    async registrarAsistencia(
-        idAlumno: number,
-        idClase: number,
-        estado: string,
-        observaciones: string,
-    ) {
+    return this.asistenciasRepository.registrarAsistencia(
+      idAlumno,
+      idClase,
+      estado,
+      observaciones,
+    );
+  }
 
-        return this.asistenciasRepository.registrarAsistencia(
-        idAlumno,
-        idClase,
-        estado,
-        observaciones,
-        );
-    }
+  async obtenerAsistenciasPorGrupoYProfesor(
+    idGrupo: number,
+    idProfesor: number,
+  ) {
+    this.validarId(idGrupo, 'id_grupo');
+    this.validarId(idProfesor, 'id_profesor');
 
-    async obtenerAsistenciasPorGrupoYProfesor(
-        idGrupo: number,
-        idProfesor: number,
-    ) {
-        if (
-            !Number.isInteger(Number(idGrupo)) ||
-            Number(idGrupo) <= 0 ||
-            !Number.isInteger(Number(idProfesor)) ||
-            Number(idProfesor) <= 0
-        ) {
-            throw new BadRequestException(
-                'El ID del grupo o del profesor no es válido',
-            );
-        }
+    return this.asistenciasRepository.obtenerAsistenciasPorGrupoYProfesor(
+      idGrupo,
+      idProfesor,
+    );
+  }
 
-        return this.asistenciasRepository.obtenerAsistenciasPorGrupoYProfesor(
-            Number(idGrupo),
-            Number(idProfesor),
-        );
-    }
-
-    
-async obtenerAsistenciasPorClase(idClase: number) {
-    if (!Number.isInteger(Number(idClase)) || Number(idClase) <= 0) {
-        throw new BadRequestException('El ID de la clase no es válido');
-    }
+  async obtenerAsistenciasPorClase(idClase: number) {
+    this.validarId(idClase, 'id_clase');
 
     return this.asistenciasRepository.obtenerAsistenciasPorClase(
-        Number(idClase),
+      idClase,
     );
-}
+  }
 
+  private validarId(id: number, campo: string): void {
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new BadRequestException(
+        `${campo} debe ser un número entero mayor que 0.`,
+      );
+    }
+  }
 }
