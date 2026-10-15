@@ -336,7 +336,7 @@ export class GruposRepository {
   }
 
   async alumnosPorGrupo(idGrupo: number) {
-        return this.databaseService.query(
+    const resultado = await this.databaseService.query(
             `
             SELECT DISTINCT
                 a.id_alumno,
@@ -353,6 +353,9 @@ export class GruposRepository {
             `,
             [idGrupo],
         );
+
+
+    return resultado.rows;
     }
 
   async liquidacionesPorProfesor(idProfesor: number) {
