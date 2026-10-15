@@ -1,91 +1,92 @@
-import {
-    ConflictException,
-    Injectable,
-    BadRequestException,
-} from '@nestjs/common';
 
+import {
+  Injectable,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+;
 import { HorariosRepository } from './horarios.repository/horarios.repository';
+import { Grupos_Alumnos } from './dto/grupos-alumnos.dto';
+import { GruposRepository } from '../grupos/grupos.repository/grupos.repository';
 
 @Injectable()
-export class HorariosService {
+export class GruposService {
+  constructor(
+    private readonly gruposRepository: GruposRepository,
+    private readonly horariosRepository: HorariosRepository,
+  ) {}
 
-    constructor(
-        private readonly horariosRepository: HorariosRepository,
-    ) {}
-
-    // Crear un horario para un grupo
-    async agregarHorarioGrupo(
-        idGrupo: number,
-        diaSemana: string,
-        horaInicio: string,
-        horaFin: string,
-    ) {
-        const grupoId = Number(idGrupo);
-
-        if (!Number.isInteger(grupoId) || grupoId <= 0) {
-            throw new BadRequestException(
-                'El ID del grupo no es válido',
-            );
-        }
-
-        if (!diaSemana) {
-            throw new BadRequestException(
-                'El día de la semana es obligatorio',
-            );
-        }
-
-        if (!horaInicio || !horaFin) {
-            throw new BadRequestException(
-                'La hora de inicio y finalización son obligatorias',
-            );
-        }
-
-        try {
-            return await this.horariosRepository.agregarHorarioGrupo(
-                grupoId,
-                diaSemana,
-                horaInicio,
-                horaFin,
-            );
-        } catch (error: any) {
-            console.error('ERROR POSTGRES:', error);
-
-            if (error.code === '23503') {
-                throw new ConflictException(
-                    'El ID del grupo no existe',
-                );
-            }
-
-            if (error.code === '23514') {
-                throw new ConflictException(
-                    'El horario no es válido',
-                );
-            }
-
-            if (error.code === '23505') {
-                throw new ConflictException(
-                    'Ya existe un horario para ese grupo en ese día y hora',
-                );
-            }
-
-            throw new ConflictException(
-                'Error agregando horario al grupo',
-            );
-        }
+  async crearGrupo(dto: Grupos_Alumnos) {
+    if (dto.cupo_max <= 0) {
+      throw new BadRequestException(
+        'El cupo máximo debe ser mayor que cero.',
+      );
     }
 
-    // Consultar los horarios de un grupo
-    async obtenerHorariosPorGrupo(idGrupo: number) {
-        const grupoId = Number(idGrupo);
+    if (!dto.horarios || dto.horarios.length === 0) {
+      throw new BadRequestException(
+        'Debés ingresar al menos un horario para el grupo.',
+      );
+    }
 
-        if (!Number.isInteger(grupoId) || grupoId <= 0) {
-            throw new BadRequestException(
-                'El ID del grupo no es válido',
-            );
-        }
-
-        return this.horariosRepository.horariosPorGrupo(
-            grupoId,
+    for (const horario of dto.horarios) {
+      if (horario.hora_inicio >= horario.hora_fin) {
+        throw new BadRequestException(
+          `La hora de inicio debe ser anterior a la hora de fin (${horario.dia_semana}).`,
         );
+      }
     }
+
+    try {
+      // El repositorio debe devolver el ID del grupo recién creado.
+      const grupo = await this.gruposRepository.crearGrupo(
+        dto.id_disciplina,
+        dto.id_profesor,
+        dto.nivel,
+        dto.cupo_max,
+      );
+
+      const idGrupo = Number(grupo.id_grupo);
+
+      if (!Number.isInteger(idGrupo) || idGrupo <= 0) {
+        throw new InternalServerErrorException(
+          'No se pudo obtener el ID del grupo creado.',
+        );
+      }
+
+      // Guardar todos los horarios asociados al grupo.
+      const horariosGuardados = [];
+
+      for (const horario of dto.horarios) {
+        const resultado =
+          await this.horariosRepository.agregarHorarioGrupo(
+            idGrupo,
+            horario.dia_semana,
+            horario.hora_inicio,
+            horario.hora_fin,
+          );
+
+        horariosGuardados.push(resultado);
+      }
+
+      return {
+        success: true,
+        mensaje: 'Grupo y horarios creados correctamente.',
+        id_grupo: idGrupo,
+        horarios: horariosGuardados,
+      };
+    } catch (error: any) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException({
+        mensaje: 'Ocurrió un error al crear el grupo y sus horarios.',
+        detalle: error.message,
+      });
+    }
+  }
 }

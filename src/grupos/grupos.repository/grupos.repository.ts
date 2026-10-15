@@ -7,6 +7,7 @@ export class GruposRepository {
     private readonly databaseService: DatabaseService,
   ) {}
 
+  
   async crearGrupo(
     idDisciplina: number,
     idProfesor: number,
@@ -15,21 +16,24 @@ export class GruposRepository {
   ) {
     const result = await this.databaseService.query(
       `
-      INSERT INTO grupos (
-        id_disciplina,
-        id_profesor,
-        nivel,
-        cupo_max,
-        activo
-      )
-      VALUES ($1, $2, $3, $4, TRUE)
-      RETURNING *
+      CALL crear_grupo($1, $2, $3, $4, NULL)
       `,
       [idDisciplina, idProfesor, nivel, cupoMax],
     );
 
-    return result.rows[0];
+    const idGrupo = result.rows?.[0]?.p_id_grupo;
+
+    if (!idGrupo) {
+      throw new Error(
+        'El procedimiento crear_grupo no devolvió el ID del grupo.',
+      );
+    }
+
+    return {
+      id_grupo: Number(idGrupo),
+    };
   }
+
 
   async actualizarGrupo(
     idGrupo: number,
