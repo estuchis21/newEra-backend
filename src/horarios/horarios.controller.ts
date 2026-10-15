@@ -1,40 +1,70 @@
+
 import {
-    Body,
-    Controller,
-    Get,
-    Param,
-    ParseIntPipe,
-    Post,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
 } from '@nestjs/common';
 
-import { CrearHorarioDto } from './dto/horarios.dto';
 import { HorariosService } from './horarios.service';
 
 @Controller('horarios')
 export class HorariosController {
+  constructor(
+    private readonly horariosService: HorariosService,
+  ) {}
 
-    constructor(
-        private readonly horariosService: HorariosService,
-    ) {}
+  @Post(':idGrupo')
+  agregarHorarioGrupo(
+    @Param('idGrupo', ParseIntPipe) idGrupo: number,
+    @Body()
+    body: {
+      dia_semana: string;
+      hora_inicio: string;
+      hora_fin: string;
+    },
+  ) {
+    return this.horariosService.agregarHorarioGrupo(
+      idGrupo,
+      body.dia_semana,
+      body.hora_inicio,
+      body.hora_fin,
+    );
+  }
 
-    // Crear un horario para un grupo
-    @Post('grupo')
-    async agregarHorarioGrupo(
-        @Body() crearHorarioDto: CrearHorarioDto,
-    ) {
-        return this.horariosService.agregarHorarioGrupo(
-            crearHorarioDto.idGrupo,
-            crearHorarioDto.diaSemana,
-            crearHorarioDto.horaInicio,
-            crearHorarioDto.horaFin,
-        );
-    }
+  @Get('grupo/:idGrupo')
+  horariosPorGrupo(
+    @Param('idGrupo', ParseIntPipe) idGrupo: number,
+  ) {
+    return this.horariosService.horariosPorGrupo(idGrupo);
+  }
 
-    // Obtener los horarios de un grupo
-    @Get('grupo/:idGrupo')
-    async obtenerHorariosPorGrupo(
-        @Param('idGrupo', ParseIntPipe) idGrupo: number,
-    ) {
-        return this.horariosService.obtenerHorariosPorGrupo(idGrupo);
-    }
+  @Put(':idHorario')
+  actualizarHorario(
+    @Param('idHorario', ParseIntPipe) idHorario: number,
+    @Body()
+    body: {
+      dia_semana: string;
+      hora_inicio: string;
+      hora_fin: string;
+    },
+  ) {
+    return this.horariosService.actualizarHorario(
+      idHorario,
+      body.dia_semana,
+      body.hora_inicio,
+      body.hora_fin,
+    );
+  }
+
+  @Delete(':idHorario')
+  eliminarHorario(
+    @Param('idHorario', ParseIntPipe) idHorario: number,
+  ) {
+    return this.horariosService.eliminarHorario(idHorario);
+  }
 }
