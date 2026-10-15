@@ -6,8 +6,15 @@ export class InscripcionesRepository {
   constructor(private readonly databaseService: DatabaseService) {}
 
   async crearInscripcion(idAlumno: number, idGrupo: number) {
-    const result = await this.databaseService.query(`SELECT crear_inscripcion($1, $2) AS id_inscripcion`, [idAlumno, idGrupo]);
-    return result.rows[0];
+    await this.databaseService.query(
+      `CALL public.crear_inscripcion($1, $2)`,
+      [idAlumno, idGrupo],
+    );
+
+    return {
+      success: true,
+      mensaje: 'Inscripción creada correctamente.',
+    };
   }
 
   async eliminarInscripcion(idInscripcion: number) {
