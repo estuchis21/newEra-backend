@@ -340,14 +340,16 @@ export class GruposRepository {
             `
             SELECT DISTINCT
                 a.id_alumno,
-                a.nombre,
-                a.apellido,
-                a.dni
-            FROM inscripciones i
+                u.nombre,
+                u.apellido,
+                u.dni
+            FROM inscripcion i
             INNER JOIN alumnos a
                 ON a.id_alumno = i.id_alumno
+            INNER JOIN users u
+                ON u.id_usuario = a.id_usuario
             WHERE i.id_grupo = $1
-            ORDER BY a.apellido, a.nombre
+            ORDER BY u.apellido, u.nombre;
             `,
             [idGrupo],
         );
