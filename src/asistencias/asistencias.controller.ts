@@ -55,6 +55,15 @@ export class AsistenciasController {
 
     }
 
+    
+@Get('clase/:idClase')
+async obtenerAsistenciasPorClase(
+    @Param('idClase', ParseIntPipe) idClase: number,
+) {
+    return this.asistenciasService.obtenerAsistenciasPorClase(idClase);
+}
+
+
 
     // ============================================================
     // REGISTRAR ASISTENCIA

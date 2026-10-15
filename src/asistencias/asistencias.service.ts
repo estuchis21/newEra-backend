@@ -58,4 +58,16 @@ export class AsistenciasService {
             Number(idProfesor),
         );
     }
+
+    
+async obtenerAsistenciasPorClase(idClase: number) {
+    if (!Number.isInteger(Number(idClase)) || Number(idClase) <= 0) {
+        throw new BadRequestException('El ID de la clase no es válido');
+    }
+
+    return this.asistenciasRepository.obtenerAsistenciasPorClase(
+        Number(idClase),
+    );
+}
+
 }
