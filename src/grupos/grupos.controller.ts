@@ -1,3 +1,4 @@
+
 import {
     Body,
     Controller,
@@ -5,7 +6,7 @@ import {
     Param,
     ParseIntPipe,
     Post,
-    Query
+    Query,
 } from '@nestjs/common';
 
 import { GruposService } from './grupos.service';
@@ -13,7 +14,6 @@ import { Grupos_Alumnos } from './dto/grupos.dto';
 
 @Controller('grupos')
 export class GruposController {
-
     constructor(
         private readonly gruposService: GruposService,
     ) {}
@@ -46,10 +46,9 @@ export class GruposController {
 
     @Get('disponibles')
     async gruposDisponibles() {
-
         return this.gruposService.gruposDisponibles();
-
     }
+
     @Get('profesor/:id_profesor')
     async gruposPorProfesor(
         @Param('id_profesor', ParseIntPipe) id_profesor: number,
@@ -68,6 +67,15 @@ export class GruposController {
         );
     }
 
+    // NUEVO: alumnos inscriptos en un grupo
+    @Get(':id_grupo/alumnos')
+    async alumnosPorGrupo(
+        @Param('id_grupo', ParseIntPipe) id_grupo: number,
+    ) {
+        return this.gruposService.alumnosPorGrupo(id_grupo);
+    }
+
+    // Alumnos de una clase: se mantiene para las asistencias
     @Get('clase/:id_clase/alumnos')
     async alumnosPorClase(
         @Param('id_clase', ParseIntPipe) id_clase: number,

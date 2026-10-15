@@ -140,4 +140,8 @@ export class GruposService {
         );
     }
 
+    async alumnosPorGrupo(idGrupo: number) {
+        return this.gruposRepository.alumnosPorGrupo(idGrupo);
+    }
+
 }

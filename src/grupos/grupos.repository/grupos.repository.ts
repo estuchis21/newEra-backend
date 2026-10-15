@@ -335,6 +335,24 @@ export class GruposRepository {
     };
   }
 
+  async alumnosPorGrupo(idGrupo: number) {
+        return this.databaseService.query(
+            `
+            SELECT DISTINCT
+                a.id_alumno,
+                a.nombre,
+                a.apellido,
+                a.dni
+            FROM inscripciones i
+            INNER JOIN alumnos a
+                ON a.id_alumno = i.id_alumno
+            WHERE i.id_grupo = $1
+            ORDER BY a.apellido, a.nombre
+            `,
+            [idGrupo],
+        );
+    }
+
   async liquidacionesPorProfesor(idProfesor: number) {
     const result = await this.databaseService.query(
       `
