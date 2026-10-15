@@ -1,4 +1,9 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+    ConflictException,
+    Injectable,
+    BadRequestException,
+} from '@nestjs/common';
+
 import { HorariosRepository } from './horarios.repository/horarios.repository';
 
 @Injectable()
@@ -8,49 +13,41 @@ export class HorariosService {
         private readonly horariosRepository: HorariosRepository,
     ) {}
 
+    // Crear un horario para un grupo
     async agregarHorarioGrupo(
         idGrupo: number,
         diaSemana: string,
         horaInicio: string,
         horaFin: string,
     ) {
-
-        console.log('==============================');
-        console.log('idGrupo recibido:', idGrupo);
-        console.log('tipo de idGrupo:', typeof idGrupo);
-        console.log('es entero:', Number.isInteger(idGrupo));
-        console.log('diaSemana:', diaSemana);
-        console.log('horaInicio:', horaInicio);
-        console.log('horaFin:', horaFin);
-        console.log('==============================');
-
         const grupoId = Number(idGrupo);
 
         if (!Number.isInteger(grupoId) || grupoId <= 0) {
-            throw new Error('El ID del grupo no es válido');
+            throw new BadRequestException(
+                'El ID del grupo no es válido',
+            );
         }
 
         if (!diaSemana) {
-            throw new Error('El día de la semana es obligatorio');
+            throw new BadRequestException(
+                'El día de la semana es obligatorio',
+            );
         }
 
         if (!horaInicio || !horaFin) {
-            throw new Error(
+            throw new BadRequestException(
                 'La hora de inicio y finalización son obligatorias',
             );
         }
 
         try {
-
             return await this.horariosRepository.agregarHorarioGrupo(
                 grupoId,
                 diaSemana,
                 horaInicio,
                 horaFin,
             );
-
         } catch (error: any) {
-
             console.error('ERROR POSTGRES:', error);
 
             if (error.code === '23503') {
@@ -75,5 +72,20 @@ export class HorariosService {
                 'Error agregando horario al grupo',
             );
         }
+    }
+
+    // Consultar los horarios de un grupo
+    async obtenerHorariosPorGrupo(idGrupo: number) {
+        const grupoId = Number(idGrupo);
+
+        if (!Number.isInteger(grupoId) || grupoId <= 0) {
+            throw new BadRequestException(
+                'El ID del grupo no es válido',
+            );
+        }
+
+        return this.horariosRepository.horariosPorGrupo(
+            grupoId,
+        );
     }
 }
