@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
@@ -7,54 +11,145 @@ export class AsistenciasRepository {
 
   async verAsistencias(idAlumno: number) {
     const result = await this.databaseService.query(
-      `SELECT * FROM historial_asistencia_alumno($1)`,
+      `
+      SELECT
+        a.id_asistencia,
+        a.id_alumno,
+        a.id_clase,
+        a.estado AS estado_asistencia,
+        a.observaciones,
+        c.fecha,
+        c.hora_inicio,
+        c.hora_fin,
+        c.estado AS estado_clase,
+        tc.tipo AS tipo_clase,
+        c.id_grupo
+      FROM asistencia a
+      INNER JOIN clase c ON c.id_clase = a.id_clase
+      INNER JOIN tipos_clase tc ON tc.id_tipo_clase = c.id_tipo_clase
+      WHERE a.id_alumno = $1
+      ORDER BY c.fecha DESC, c.hora_inicio DESC
+      `,
       [idAlumno],
     );
+
     return result.rows;
   }
 
   async verAsistenciaAlumnoClase(idAlumno: number, idClase: number) {
     const result = await this.databaseService.query(
-      `SELECT * FROM asistencia_x_alumno_clase($1, $2)`,
+      `
+      SELECT
+        a.id_asistencia,
+        a.id_alumno,
+        a.id_clase,
+        a.estado,
+        a.observaciones,
+        c.fecha,
+        c.hora_inicio,
+        c.hora_fin
+      FROM asistencia a
+      INNER JOIN clase c ON c.id_clase = a.id_clase
+      WHERE a.id_alumno = $1
+        AND a.id_clase = $2
+      `,
       [idAlumno, idClase],
     );
+
     return result.rows;
   }
 
   async buscarAsistencia(idAlumno: number, idClase: number) {
     const result = await this.databaseService.query(
-      `SELECT * FROM buscar_asistencia($1, $2)`,
+      `
+      SELECT *
+      FROM asistencia
+      WHERE id_alumno = $1
+        AND id_clase = $2
+      LIMIT 1
+      `,
       [idAlumno, idClase],
     );
+
     return result.rows[0] ?? null;
   }
 
-  async registrarAsistencia(idAlumno: number, idClase: number, estado: string, observaciones = '') {
+  async registrarAsistencia(
+    idAlumno: number,
+    idClase: number,
+    estado: string,
+    observaciones = '',
+  ) {
     try {
       const result = await this.databaseService.query(
-        `SELECT registrar_asistencia($1, $2, $3, $4) AS id_asistencia`,
+        `
+        INSERT INTO asistencia (
+          id_alumno,
+          id_clase,
+          estado,
+          observaciones
+        )
+        VALUES ($1, $2, $3, $4)
+        RETURNING id_asistencia
+        `,
         [idAlumno, idClase, estado, observaciones || null],
       );
-      return { success: true, idAsistencia: result.rows[0]?.id_asistencia, message: 'Asistencia registrada correctamente.' };
+
+      return {
+        success: true,
+        idAsistencia: result.rows[0].id_asistencia,
+        message: 'Asistencia registrada correctamente.',
+      };
     } catch (error: any) {
-      if (error?.code === '23505' || error?.constraint === 'uq_asistencia_alumno_clase') {
-        throw new ConflictException(`Ya existe una asistencia para el alumno ${idAlumno} y la clase ${idClase}.`);
+      if (error?.code === '23505') {
+        throw new ConflictException(
+          `Ya existe una asistencia para el alumno ${idAlumno} y la clase ${idClase}.`,
+        );
       }
+
+      if (error?.code === '23503') {
+        throw new NotFoundException(
+          'El alumno o la clase indicada no existe.',
+        );
+      }
+
       throw error;
     }
   }
 
-  async registrarAsistenciaConRutinaAnterior(idAlumno: number, idClase: number, estado: string, observaciones = '') {
-    // Compatibilidad con el nombre de procedimiento que ya usaba tu repositorio.
-    await this.databaseService.query(
-      `CALL anotar_asistencia($1, $2, $3, $4)`,
-      [idAlumno, idClase, estado, observaciones],
+  // Se mantiene el método por compatibilidad con los servicios existentes.
+  async registrarAsistenciaConRutinaAnterior(
+    idAlumno: number,
+    idClase: number,
+    estado: string,
+    observaciones = '',
+  ) {
+    return this.registrarAsistencia(
+      idAlumno,
+      idClase,
+      estado,
+      observaciones,
     );
-    return { success: true, message: 'Asistencia registrada correctamente.' };
   }
 
   async eliminarAsistencia(idAlumno: number, idClase: number) {
-    await this.databaseService.query(`CALL eliminar_asistencia($1, $2)`, [idAlumno, idClase]);
-    return { success: true, message: 'Asistencia eliminada correctamente.' };
+    const result = await this.databaseService.query(
+      `
+      DELETE FROM asistencia
+      WHERE id_alumno = $1
+        AND id_clase = $2
+      RETURNING id_asistencia
+      `,
+      [idAlumno, idClase],
+    );
+
+    return {
+      success: true,
+      eliminada: result.rowCount > 0,
+      message:
+        result.rowCount > 0
+          ? 'Asistencia eliminada correctamente.'
+          : 'No se encontró la asistencia indicada.',
+    };
   }
 }

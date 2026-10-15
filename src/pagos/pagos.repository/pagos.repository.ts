@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 
 export interface CuotaParaPago {
@@ -31,11 +31,9 @@ export class PagosRepository {
         NULL::integer AS paquete_creditos,
         NULL::varchar AS paquete_nombre
       FROM cuota c
-      INNER JOIN alumnos a
-        ON a.id_alumno = c.id_alumno
-      INNER JOIN users u
-        ON u.id_usuario = a.id_usuario
-      WHERE c.id_cuota = $1::integer
+      INNER JOIN alumnos a ON a.id_alumno = c.id_alumno
+      INNER JOIN users u ON u.id_usuario = a.id_usuario
+      WHERE c.id_cuota = $1
       LIMIT 1
       `,
       [idCuota],
@@ -49,7 +47,11 @@ export class PagosRepository {
   ): Promise<boolean> {
     const result = await this.databaseService.query(
       `
-      SELECT existe_pago_mercado_pago($1::bigint) AS existe
+      SELECT EXISTS (
+        SELECT 1
+        FROM pago
+        WHERE id_mercado_pago = $1::bigint
+      ) AS existe
       `,
       [String(idMercadoPago)],
     );
@@ -63,46 +65,6 @@ export class PagosRepository {
     const result = await this.databaseService.query(
       `
       SELECT *
-      FROM obtener_pago_mercado_pago($1::bigint)
-      `,
-      [String(idMercadoPago)],
-    );
-
-    return result.rows[0] ?? null;
-  }
-
-  /**
-   * Registra un pago usando el procedimiento real de PostgreSQL.
-   *
-   * Se conserva el orden de los argumentos del método:
-   * (idCuota, monto, metodoPago, idMercadoPago).
-   */
-  async registrarPago(
-    idCuota: number,
-    monto: number,
-    metodoPago: string,
-    idMercadoPago: number | string,
-  ) {
-    await this.databaseService.query(
-      `
-      CALL registrar_pago_cuota(
-        $1::integer,
-        $2::numeric,
-        $3::bigint,
-        $4::varchar
-      )
-      `,
-      [
-        idCuota,
-        monto,
-        String(idMercadoPago),
-        metodoPago,
-      ],
-    );
-
-    const result = await this.databaseService.query(
-      `
-      SELECT id_pago
       FROM pago
       WHERE id_mercado_pago = $1::bigint
       LIMIT 1
@@ -113,15 +75,112 @@ export class PagosRepository {
     return result.rows[0] ?? null;
   }
 
+  async registrarPago(
+    idCuota: number,
+    monto: number,
+    metodoPago: string,
+    idMercadoPago: number | string,
+  ) {
+    // El INSERT y la actualización de la cuota se realizan
+    // dentro de una única sentencia SQL.
+    const result = await this.databaseService.query(
+      `
+      WITH nuevo_pago AS (
+        INSERT INTO pago (
+          id_cuota,
+          monto,
+          fecha_pago,
+          estado,
+          id_mercado_pago,
+          metodo_pago
+        )
+        VALUES (
+          $1,
+          $2,
+          CURRENT_TIMESTAMP,
+          'Aprobado',
+          $3::bigint,
+          $4
+        )
+        RETURNING id_pago, id_cuota
+      ),
+      cuota_actualizada AS (
+        UPDATE cuota c
+        SET estado = CASE
+          WHEN (
+            SELECT COALESCE(SUM(p.monto), 0)
+            FROM pago p
+            WHERE p.id_cuota = c.id_cuota
+              AND p.estado <> 'Anulado'
+          ) >= c.monto
+          THEN 'Pagado'
+          ELSE 'Pendiente'
+        END
+        FROM nuevo_pago np
+        WHERE c.id_cuota = np.id_cuota
+        RETURNING c.id_cuota
+      )
+      SELECT np.id_pago
+      FROM nuevo_pago np
+      INNER JOIN cuota_actualizada ca
+        ON ca.id_cuota = np.id_cuota
+      `,
+      [
+        idCuota,
+        monto,
+        String(idMercadoPago),
+        metodoPago,
+      ],
+    );
+
+    if (result.rows.length === 0) {
+      throw new NotFoundException(
+        `No se pudo registrar el pago de la cuota ${idCuota}.`,
+      );
+    }
+
+    return result.rows[0];
+  }
+
   async anularPago(idPago: number) {
-    await this.databaseService.query(
-      `CALL anular_pago($1::integer)`,
+    const result = await this.databaseService.query(
+      `
+      WITH pago_anulado AS (
+        UPDATE pago
+        SET estado = 'Anulado'
+        WHERE id_pago = $1
+        RETURNING id_pago, id_cuota
+      ),
+      cuota_actualizada AS (
+        UPDATE cuota c
+        SET estado = CASE
+          WHEN (
+            SELECT COALESCE(SUM(p.monto), 0)
+            FROM pago p
+            WHERE p.id_cuota = c.id_cuota
+              AND p.estado <> 'Anulado'
+          ) >= c.monto
+          THEN 'Pagado'
+          ELSE 'Pendiente'
+        END
+        FROM pago_anulado pa
+        WHERE c.id_cuota = pa.id_cuota
+        RETURNING c.id_cuota
+      )
+      SELECT pa.id_pago
+      FROM pago_anulado pa
+      INNER JOIN cuota_actualizada ca
+        ON ca.id_cuota = pa.id_cuota
+      `,
       [idPago],
     );
 
     return {
-      success: true,
-      message: 'Pago anulado correctamente.',
+      success: result.rows.length > 0,
+      message:
+        result.rows.length > 0
+          ? 'Pago anulado correctamente.'
+          : 'No se encontró el pago.',
     };
   }
 }
