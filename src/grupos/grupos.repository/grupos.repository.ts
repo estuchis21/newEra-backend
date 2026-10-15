@@ -226,28 +226,23 @@ export class GruposRepository {
       `
       SELECT
         g.id_grupo,
-        g.id_disciplina,
-        d.disciplina,
-        g.id_profesor,
         g.nivel,
         g.cupo_max,
-        g.activo,
-        COUNT(i.id_inscripcion)::integer AS alumnos_inscriptos
-      FROM grupos g
-      INNER JOIN disciplinas d ON d.id_disciplina = g.id_disciplina
-      LEFT JOIN inscripcion i
+        d.disciplina,
+        COUNT(i.id_inscripcion)::int AS cantidad_alumnos
+      FROM public.grupos g
+      INNER JOIN public.disciplinas d
+        ON d.id_disciplina = g.id_disciplina
+      LEFT JOIN public.inscripcion i
         ON i.id_grupo = g.id_grupo
-       AND i.estado = 'Activo'
+        AND i.estado = 'Activo'
       WHERE g.id_profesor = $1
       GROUP BY
         g.id_grupo,
-        g.id_disciplina,
-        d.disciplina,
-        g.id_profesor,
         g.nivel,
         g.cupo_max,
-        g.activo
-      ORDER BY d.disciplina, g.nivel
+        d.disciplina
+      ORDER BY g.id_grupo;
       `,
       [idProfesor],
     );
