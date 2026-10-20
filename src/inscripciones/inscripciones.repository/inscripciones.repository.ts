@@ -37,7 +37,7 @@ export class InscripcionesRepository {
     }
 
     await this.databaseService.query(
-      `CALL public.cancelar_inscripcion($1, $2)`,
+      `SELECT public.cancelar_inscripcion($1, $2)`,
       [row.id_alumno, row.id_grupo],
     );
 
