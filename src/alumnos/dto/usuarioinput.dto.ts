@@ -6,7 +6,6 @@ import {
 } from 'class-validator';
 
 export class UsuarioInputDto {
-
   @IsString()
   @IsNotEmpty()
   nombre!: string;
@@ -31,9 +30,9 @@ export class UsuarioInputDto {
   username!: string;
 
   @IsString()
+  @IsNotEmpty()
   celular!: string;
 
   @IsInt()
   id_rol!: number;
-
 }
