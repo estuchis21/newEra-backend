@@ -9,6 +9,8 @@ import { DatabaseService } from '../../database/database.service';
 export class AsistenciasRepository {
   constructor(private readonly databaseService: DatabaseService) {}
 
+  
+  
   async verAsistencias(idAlumno: number) {
     const result = await this.databaseService.query(
       `
@@ -16,25 +18,34 @@ export class AsistenciasRepository {
         a.id_asistencia,
         a.id_alumno,
         a.id_clase,
-        a.estado AS estado_asistencia,
+        a.estado AS estado,
         a.observaciones,
         c.fecha,
         c.hora_inicio,
         c.hora_fin,
         c.estado AS estado_clase,
         tc.tipo AS tipo_clase,
-        c.id_grupo
+        c.id_grupo,
+        d.disciplina,
+        CONCAT(d.disciplina, ' - ', g.nivel) AS grupo
       FROM asistencia a
-      INNER JOIN clase c ON c.id_clase = a.id_clase
-      INNER JOIN tipos_clase tc ON tc.id_tipo_clase = c.id_tipo_clase
+      INNER JOIN clase c
+        ON c.id_clase = a.id_clase
+      INNER JOIN tipos_clase tc
+        ON tc.id_tipo_clase = c.id_tipo_clase
+      LEFT JOIN grupos g
+        ON g.id_grupo = c.id_grupo
+      LEFT JOIN disciplinas d
+        ON d.id_disciplina = g.id_disciplina
       WHERE a.id_alumno = $1
-      ORDER BY c.fecha DESC, c.hora_inicio DESC
+      ORDER BY c.fecha DESC, c.hora_inicio DESC;
       `,
       [idAlumno],
     );
 
     return result.rows;
   }
+
 
   async verAsistenciaAlumnoClase(idAlumno: number, idClase: number) {
     const result = await this.databaseService.query(

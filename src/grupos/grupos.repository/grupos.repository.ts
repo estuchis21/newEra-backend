@@ -58,24 +58,68 @@ export class GruposRepository {
     return result.rows[0] ?? null;
   }
 
+  
   async obtenerGruposPorAlumno(idAlumno: number) {
-      const query = `
-          SELECT
-              g.*,
-              i.fecha_inscripcion,
-              i.estado AS estado_inscripcion
-          FROM inscripcion i
-          INNER JOIN grupos g
-              ON g.id_grupo = i.id_grupo
-          WHERE i.id_alumno = $1
-            AND i.estado = 'Activo'
-          ORDER BY g.id_grupo;
-      `;
+    const result = await this.databaseService.query(
+      `
+      SELECT
+        g.id_grupo,
+        g.id_disciplina,
+        d.disciplina,
+        g.id_profesor,
+        CONCAT(u.nombre, ' ', u.apellido) AS profesor,
+        g.nivel,
+        g.cupo_max,
+        g.activo,
+        i.id_inscripcion,
+        i.fecha_inscripcion,
+        i.estado AS estado_inscripcion,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'id_horario', h.id_horario,
+              'dia_semana', h.dia_semana,
+              'hora_inicio', h.hora_inicio,
+              'hora_fin', h.hora_fin
+            )
+            ORDER BY h.dia_semana, h.hora_inicio
+          ) FILTER (WHERE h.id_horario IS NOT NULL),
+          '[]'::json
+        ) AS horarios
+      FROM inscripcion i
+      INNER JOIN grupos g
+        ON g.id_grupo = i.id_grupo
+      INNER JOIN disciplinas d
+        ON d.id_disciplina = g.id_disciplina
+      INNER JOIN profesores p
+        ON p.id_profesor = g.id_profesor
+      INNER JOIN users u
+        ON u.id_usuario = p.id_usuario
+      LEFT JOIN horario_grupo h
+        ON h.id_grupo = g.id_grupo
+      WHERE i.id_alumno = $1
+        AND i.estado = 'Activo'
+      GROUP BY
+        g.id_grupo,
+        g.id_disciplina,
+        d.disciplina,
+        g.id_profesor,
+        u.nombre,
+        u.apellido,
+        g.nivel,
+        g.cupo_max,
+        g.activo,
+        i.id_inscripcion,
+        i.fecha_inscripcion,
+        i.estado
+      ORDER BY g.id_grupo;
+      `,
+      [idAlumno],
+    );
 
-      const result = await this.databaseService.query(query, [idAlumno]);
-
-      return result.rows;
+    return result.rows;
   }
+
 
 
   async sesionesPorAlumno(
