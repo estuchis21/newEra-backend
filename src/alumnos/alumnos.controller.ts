@@ -99,14 +99,14 @@ export class AlumnosController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(
-    @Body() createAlumnoDto: CreateAlumnoDto
-  ) {
+  async create(@Body() createAlumnoDto: CreateAlumnoDto) {
+    console.log(
+      'BODY RECIBIDO:',
+      JSON.stringify(createAlumnoDto, null, 2),
+    );
 
     const result =
-      await this.alumnosService.RegistrarAlumno(
-        createAlumnoDto
-      );
+      await this.alumnosService.RegistrarAlumno(createAlumnoDto);
 
     return {
       statusCode: HttpStatus.CREATED,

@@ -15,5 +15,5 @@ export class CreateAlumnoDto {
 
   @IsOptional()
   @IsBoolean()
-  es_menor?: boolean;
+  es_menor?: boolean | null;
 }
