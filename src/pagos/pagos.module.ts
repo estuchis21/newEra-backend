@@ -9,10 +9,12 @@ import { PagosRepository } from './pagos.repository/pagos.repository';
 import { MercadopagoModule } from '../integrations/mercadopago/mercadopago.module';
 
 import { MercadopagoController } from '../integrations/mercadopago/mercadopago.controller';
+import { LiquidacionProfesorModule } from '../liquidacion-profesor/liquidacion-profesor.module';
 
 @Module({
   imports: [
     MercadopagoModule,
+    LiquidacionProfesorModule,
   ],
 
   controllers: [

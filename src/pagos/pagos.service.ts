@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { PagosRepository } from './pagos.repository/pagos.repository';
+import { LiquidacionProfesorService } from '../liquidacion-profesor/liquidacion-profesor.service';
 
 import { MercadopagoService } from '../integrations/mercadopago/mercadopago.service';
 
@@ -12,7 +13,7 @@ import { MercadopagoService } from '../integrations/mercadopago/mercadopago.serv
 export class PagosService {
   constructor(
     private readonly pagosRepository: PagosRepository,
-
+    private readonly liquidacionProfesorService: LiquidacionProfesorService,
     private readonly mercadopagoService: MercadopagoService,
   ) {}
 
@@ -251,17 +252,17 @@ export class PagosService {
       // OBTENER PAGO REAL DESDE MERCADO PAGO
       // ========================================================
 
-      const pago =
+      const obtener_pago =
         await this.mercadopagoService.obtenerPago(
           idMercadoPago,
         );
 
       console.log(
         'PAGO OBTENIDO DE MERCADO PAGO:',
-        pago,
+        obtener_pago,
       );
 
-      if (!pago) {
+      if (!obtener_pago) {
         console.error(
           'NO SE ENCONTRÓ EL PAGO',
         );
@@ -280,7 +281,7 @@ export class PagosService {
 
       const estado =
         String(
-          pago.status || '',
+          obtener_pago.status || '',
         ).toLowerCase();
 
       console.log(
@@ -330,7 +331,7 @@ export class PagosService {
 
       const externalReference =
         String(
-          pago.external_reference || '',
+          obtener_pago.external_reference || '',
         );
 
       console.log(
@@ -390,7 +391,7 @@ export class PagosService {
 
       const monto =
         Number(
-          pago.transaction_amount ?? 0,
+          obtener_pago.transaction_amount ?? 0,
         );
 
       if (
@@ -416,8 +417,8 @@ export class PagosService {
 
       const metodoPago =
         String(
-          pago.payment_method_id ??
-          pago.payment_type_id ??
+          obtener_pago.payment_method_id ??
+          obtener_pago.payment_type_id ??
           'Mercado Pago',
         );
 
@@ -457,12 +458,17 @@ export class PagosService {
       // REGISTRAR EN BASE DE DATOS
       // ========================================================
 
-      await this.pagosRepository.registrarPago(
+
+      const pago = await this.pagosRepository.registrarPago(
         idCuota,
         monto,
         metodoPago,
         idMercadoPago,
       );
+
+      // Intenta generar las liquidaciones.
+      // El repositorio verifica que la cuota esté completamente pagada.
+      await this.liquidacionProfesorService.generarPorCuota(idCuota);
 
       // ========================================================
       // ÉXITO
@@ -502,6 +508,7 @@ export class PagosService {
         idMercadoPago,
         monto,
         metodoPago,
+        pago
       };
 
     } catch (error) {
