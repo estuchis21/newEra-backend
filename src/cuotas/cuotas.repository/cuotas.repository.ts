@@ -1,5 +1,9 @@
 
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
@@ -14,20 +18,19 @@ export class CuotasRepository {
 
   /**
    * Acepta:
-   * - MM/YYYY  ->  YYYY-MM-01
-   * - YYYY-MM  ->  YYYY-MM-01
-   * - YYYY-MM-DD -> YYYY-MM-01
+   * MM/YYYY
+   * YYYY-MM
+   * YYYY-MM-DD
    *
-   * La base de datos almacena siempre el primer día del mes.
+   * Devuelve siempre YYYY-MM-01.
    */
   private normalizarPeriodo(periodo: string): string {
-    const valor = String(periodo).trim();
+    const valor = String(periodo ?? '').trim();
 
     let anio: number;
     let mes: number;
 
     const formatoMesAnio = valor.match(/^(\d{1,2})\/(\d{4})$/);
-
     const formatoAnioMes = valor.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
 
     if (formatoMesAnio) {
@@ -37,7 +40,7 @@ export class CuotasRepository {
       anio = Number(formatoAnioMes[1]);
       mes = Number(formatoAnioMes[2]);
     } else {
-      throw new Error(
+      throw new BadRequestException(
         'Formato de período inválido. Utilizá MM/YYYY o YYYY-MM-DD.',
       );
     }
@@ -49,7 +52,7 @@ export class CuotasRepository {
       mes < 1 ||
       mes > 12
     ) {
-      throw new Error('El período indicado no es válido.');
+      throw new BadRequestException('El período indicado no es válido.');
     }
 
     return `${anio}-${String(mes).padStart(2, '0')}-01`;
@@ -59,19 +62,38 @@ export class CuotasRepository {
   // CONTROL DE ACCESO ACADÉMICO
   // ============================================================
 
+  /**
+   * Regla:
+   * - Del día 1 al 10: acceso permitido.
+   * - Desde el día 11: debe estar pagada la cuota del mes actual.
+   *
+   * Se consideran los pagos aprobados y no solamente el estado
+   * almacenado en cuota.estado.
+   */
   async puedeAccederAlumno(idAlumno: number): Promise<boolean> {
     const result = await this.databaseService.query(
       `
       SELECT
         CASE
-          WHEN EXTRACT(DAY FROM CURRENT_DATE) <= 10
-            THEN TRUE
+          WHEN EXTRACT(DAY FROM CURRENT_DATE) <= 10 THEN TRUE
+
           ELSE EXISTS (
             SELECT 1
-            FROM cuota c
+            FROM public.cuota c
             WHERE c.id_alumno = $1
               AND c.periodo = DATE_TRUNC('month', CURRENT_DATE)::DATE
-              AND LOWER(TRIM(c.estado)) = 'pagado'
+              AND (
+                LOWER(TRIM(c.estado)) = 'pagado'
+                OR COALESCE((
+                  SELECT SUM(p.monto)
+                  FROM public.pago p
+                  WHERE p.id_cuota = c.id_cuota
+                    AND LOWER(TRIM(p.estado)) IN (
+                      'aprobado',
+                      'approved'
+                    )
+                ), 0) >= c.monto
+              )
           )
         END AS puede_acceder;
       `,
@@ -86,14 +108,17 @@ export class CuotasRepository {
   // ============================================================
 
   async crearCuota(idAlumno: number, monto: number) {
+    this.validarImporte(monto);
+
     const result = await this.databaseService.query(
       `
-      INSERT INTO cuota (
+      INSERT INTO public.cuota (
         id_alumno,
         periodo,
         monto,
         vencimiento,
-        estado
+        estado,
+        mes_anio
       )
       VALUES (
         $1,
@@ -104,8 +129,11 @@ export class CuotasRepository {
           EXTRACT(MONTH FROM CURRENT_DATE)::INTEGER,
           10
         ),
-        'Pendiente'
+        'Pendiente',
+        TO_CHAR(CURRENT_DATE, 'MM/YYYY')
       )
+      ON CONFLICT (id_alumno, periodo)
+      DO NOTHING
       RETURNING
         *,
         TO_CHAR(periodo, 'MM/YYYY') AS mes_anio,
@@ -116,7 +144,16 @@ export class CuotasRepository {
       [idAlumno, monto],
     );
 
-    return result.rows[0] ?? null;
+    if (result.rows.length > 0) {
+      return result.rows[0];
+    }
+
+    const existente = await this.obtenerCuotaPorPeriodo(
+      idAlumno,
+      this.periodoActual(),
+    );
+
+    return existente;
   }
 
   // ============================================================
@@ -124,14 +161,17 @@ export class CuotasRepository {
   // ============================================================
 
   async generarCuotasMes(monto: number) {
+    this.validarImporte(monto);
+
     const result = await this.databaseService.query(
       `
-      INSERT INTO cuota (
+      INSERT INTO public.cuota (
         id_alumno,
         periodo,
         monto,
         vencimiento,
-        estado
+        estado,
+        mes_anio
       )
       SELECT
         a.id_alumno,
@@ -142,12 +182,11 @@ export class CuotasRepository {
           EXTRACT(MONTH FROM CURRENT_DATE)::INTEGER,
           10
         ),
-        'Pendiente'
-      FROM alumnos a
-
+        'Pendiente',
+        TO_CHAR(CURRENT_DATE, 'MM/YYYY')
+      FROM public.alumnos a
       ON CONFLICT (id_alumno, periodo)
       DO NOTHING
-
       RETURNING
         *,
         TO_CHAR(periodo, 'MM/YYYY') AS mes_anio,
@@ -177,32 +216,88 @@ export class CuotasRepository {
         c.id_cuota,
         c.id_alumno,
         c.periodo,
-
         TO_CHAR(c.periodo, 'MM/YYYY') AS mes_anio,
         EXTRACT(MONTH FROM c.periodo)::INTEGER AS mes,
         EXTRACT(YEAR FROM c.periodo)::INTEGER AS anio,
-
         c.monto,
         c.vencimiento,
         c.vencimiento AS fecha_vencimiento,
         c.estado,
+
+        COALESCE(p.total_pagado, 0) AS total_pagado,
+
+        GREATEST(
+          c.monto - COALESCE(p.total_pagado, 0),
+          0
+        ) AS saldo_pendiente,
 
         u.id_usuario,
         u.nombre,
         u.apellido,
         u.email
 
-      FROM cuota c
+      FROM public.cuota c
 
-      INNER JOIN alumnos a
+      INNER JOIN public.alumnos a
         ON a.id_alumno = c.id_alumno
 
-      INNER JOIN users u
+      INNER JOIN public.users u
         ON u.id_usuario = a.id_usuario
+
+      LEFT JOIN LATERAL (
+        SELECT SUM(pg.monto) AS total_pagado
+        FROM public.pago pg
+        WHERE pg.id_cuota = c.id_cuota
+          AND LOWER(TRIM(pg.estado)) IN ('aprobado', 'approved')
+      ) p ON TRUE
 
       WHERE c.id_cuota = $1;
       `,
       [idCuota],
+    );
+
+    if (!result.rows.length) {
+      throw new NotFoundException('La cuota solicitada no existe.');
+    }
+
+    return result.rows[0];
+  }
+
+  // ============================================================
+  // OBTENER CUOTA DE UN ALUMNO PARA UN PERÍODO
+  // ============================================================
+
+  async obtenerCuotaPorPeriodo(idAlumno: number, periodo: string) {
+    const periodoNormalizado = this.normalizarPeriodo(periodo);
+
+    const result = await this.databaseService.query(
+      `
+      SELECT
+        c.*,
+        TO_CHAR(c.periodo, 'MM/YYYY') AS mes_anio,
+
+        COALESCE(p.total_pagado, 0) AS total_pagado,
+
+        GREATEST(
+          c.monto - COALESCE(p.total_pagado, 0),
+          0
+        ) AS saldo_pendiente
+
+      FROM public.cuota c
+
+      LEFT JOIN LATERAL (
+        SELECT SUM(pg.monto) AS total_pagado
+        FROM public.pago pg
+        WHERE pg.id_cuota = c.id_cuota
+          AND LOWER(TRIM(pg.estado)) IN ('aprobado', 'approved')
+      ) p ON TRUE
+
+      WHERE c.id_alumno = $1
+        AND c.periodo = $2::DATE
+
+      LIMIT 1;
+      `,
+      [idAlumno, periodoNormalizado],
     );
 
     return result.rows[0] ?? null;
@@ -219,17 +314,36 @@ export class CuotasRepository {
         c.id_cuota,
         c.id_alumno,
         c.periodo,
-
         TO_CHAR(c.periodo, 'MM/YYYY') AS mes_anio,
         EXTRACT(MONTH FROM c.periodo)::INTEGER AS mes,
         EXTRACT(YEAR FROM c.periodo)::INTEGER AS anio,
-
         c.monto,
         c.vencimiento,
         c.vencimiento AS fecha_vencimiento,
-        c.estado
 
-      FROM cuota c
+        COALESCE(p.total_pagado, 0) AS total_pagado,
+
+        GREATEST(
+          c.monto - COALESCE(p.total_pagado, 0),
+          0
+        ) AS saldo_pendiente,
+
+        CASE
+          WHEN COALESCE(p.total_pagado, 0) >= c.monto
+            THEN 'Pagado'
+          WHEN COALESCE(p.total_pagado, 0) > 0
+            THEN 'Parcial'
+          ELSE 'Pendiente'
+        END AS estado
+
+      FROM public.cuota c
+
+      LEFT JOIN LATERAL (
+        SELECT SUM(pg.monto) AS total_pagado
+        FROM public.pago pg
+        WHERE pg.id_cuota = c.id_cuota
+          AND LOWER(TRIM(pg.estado)) IN ('aprobado', 'approved')
+      ) p ON TRUE
 
       WHERE c.id_alumno = $1
 
@@ -249,12 +363,26 @@ export class CuotasRepository {
     const result = await this.databaseService.query(
       `
       SELECT
-        COALESCE(SUM(monto), 0) AS saldo
+        COALESCE(
+          SUM(
+            GREATEST(
+              c.monto - COALESCE(p.total_pagado, 0),
+              0
+            )
+          ),
+          0
+        ) AS saldo
 
-      FROM cuota
+      FROM public.cuota c
 
-      WHERE id_alumno = $1
-        AND LOWER(TRIM(estado)) <> 'pagado';
+      LEFT JOIN LATERAL (
+        SELECT SUM(pg.monto) AS total_pagado
+        FROM public.pago pg
+        WHERE pg.id_cuota = c.id_cuota
+          AND LOWER(TRIM(pg.estado)) IN ('aprobado', 'approved')
+      ) p ON TRUE
+
+      WHERE c.id_alumno = $1;
       `,
       [idAlumno],
     );
@@ -273,24 +401,30 @@ export class CuotasRepository {
     importe: number,
     vencimiento: string,
   ) {
+    this.validarImporte(importe);
+
     const periodoNormalizado = this.normalizarPeriodo(periodo);
 
     const result = await this.databaseService.query(
       `
-      INSERT INTO cuota (
+      INSERT INTO public.cuota (
         id_alumno,
         periodo,
         monto,
         vencimiento,
-        estado
+        estado,
+        mes_anio
       )
       VALUES (
         $1,
         $2::DATE,
         $3,
         $4::DATE,
-        'Pendiente'
+        'Pendiente',
+        TO_CHAR($2::DATE, 'MM/YYYY')
       )
+      ON CONFLICT (id_alumno, periodo)
+      DO NOTHING
       RETURNING
         *,
         TO_CHAR(periodo, 'MM/YYYY') AS mes_anio,
@@ -306,6 +440,32 @@ export class CuotasRepository {
       ],
     );
 
-    return result.rows[0] ?? null;
+    if (result.rows.length > 0) {
+      return result.rows[0];
+    }
+
+    return this.obtenerCuotaPorPeriodo(idAlumno, periodoNormalizado);
+  }
+
+  // ============================================================
+  // VALIDACIONES Y AUXILIARES
+  // ============================================================
+
+  private validarImporte(monto: number): void {
+    if (!Number.isFinite(monto) || monto <= 0) {
+      throw new BadRequestException(
+        'El importe de la cuota debe ser mayor que cero.',
+      );
+    }
+  }
+
+  private periodoActual(): string {
+    // Se utiliza PostgreSQL como referencia temporal en las consultas.
+    // Este método solo proporciona una fecha para normalizar la consulta.
+    const fecha = new Date();
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+
+    return `${anio}-${mes}-01`;
   }
 }
