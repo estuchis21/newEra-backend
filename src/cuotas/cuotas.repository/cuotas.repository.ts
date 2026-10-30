@@ -19,17 +19,16 @@ export class CuotasRepository {
             SELECT 1
             FROM cuota c
             WHERE c.id_alumno = $1
-              AND c.mes_anio = TO_CHAR(CURRENT_DATE, 'MM/YYYY')
+              AND c.periodo = DATE_TRUNC('month', CURRENT_DATE)::DATE
               AND LOWER(TRIM(c.estado)) = 'pagado'
           )
-        END AS puede_acceder
+        END AS puede_acceder;
       `,
       [idAlumno],
     );
 
     return result.rows[0]?.puede_acceder === true;
   }
-
   async crearCuota(idAlumno: number, monto: number) {
     const result = await this.databaseService.query(
       `
