@@ -7,6 +7,29 @@ export class CuotasRepository {
     private readonly databaseService: DatabaseService,
   ) {}
 
+
+  async puedeAccederAlumno(idAlumno: number): Promise<boolean> {
+    const result = await this.databaseService.query(
+      `
+      SELECT
+        CASE
+          WHEN EXTRACT(DAY FROM CURRENT_DATE) <= 10
+            THEN TRUE
+          ELSE EXISTS (
+            SELECT 1
+            FROM cuota c
+            WHERE c.id_alumno = $1
+              AND c.mes_anio = TO_CHAR(CURRENT_DATE, 'MM/YYYY')
+              AND LOWER(TRIM(c.estado)) = 'pagado'
+          )
+        END AS puede_acceder
+      `,
+      [idAlumno],
+    );
+
+    return result.rows[0]?.puede_acceder === true;
+  }
+
   async crearCuota(idAlumno: number, monto: number) {
     const result = await this.databaseService.query(
       `

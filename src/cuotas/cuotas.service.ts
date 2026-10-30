@@ -93,4 +93,27 @@ export class CuotasService {
     return await this.cuotasRepository
       .obtenerCuotasAlumno(idAlumno);
   }
+
+  async verificarAccesoAlumno(idAlumno: number) {
+    if (!Number.isInteger(idAlumno) || idAlumno <= 0) {
+      throw new BadRequestException(
+        'El ID del alumno no es válido',
+      );
+    }
+
+    const puedeAcceder =
+      await this.cuotasRepository.puedeAccederAlumno(
+        idAlumno,
+      );
+
+    return {
+      puedeAcceder,
+      motivo: puedeAcceder
+        ? null
+        : 'CUOTA_PENDIENTE',
+      mensaje: puedeAcceder
+        ? 'El alumno puede utilizar el sistema.'
+        : 'Tenés que abonar la cuota del mes para continuar.',
+    };
+  }
 }

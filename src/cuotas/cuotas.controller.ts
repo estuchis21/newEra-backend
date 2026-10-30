@@ -16,6 +16,16 @@ export class CuotasController {
       CuotasService,
   ) {}
 
+  @Get('alumno/:idAlumno/acceso')
+  async verificarAccesoAlumno(
+    @Param('idAlumno', ParseIntPipe)
+    idAlumno: number,
+  ) {
+    return this.cuotasService.verificarAccesoAlumno(
+      idAlumno,
+    );
+  }
+
   // ============================================================
   // CREAR CUOTA
   // ============================================================
