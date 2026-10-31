@@ -1,3 +1,4 @@
+
 import {
   Body,
   Controller,
@@ -6,17 +7,18 @@ import {
   Post,
   Get,
   Param,
+  BadRequestException,
 } from '@nestjs/common';
 
 import { AlumnosService } from './alumnos.service';
+
 import { CreateAlumnoDto } from './dto/createalumno.dto';
 import { LoginDto } from './dto/login.dto';
 
 @Controller('alumnos')
 export class AlumnosController {
-
   constructor(
-    private readonly alumnosService: AlumnosService
+    private readonly alumnosService: AlumnosService,
   ) {}
 
   // ============================================================
@@ -25,12 +27,10 @@ export class AlumnosController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(
-    @Body() loginDto: LoginDto
-  ) {
-
-    const result =
-      await this.alumnosService.login(loginDto);
+  async login(@Body() loginDto: LoginDto) {
+    const result = await this.alumnosService.login(
+      loginDto,
+    );
 
     return {
       statusCode: HttpStatus.OK,
@@ -39,7 +39,6 @@ export class AlumnosController {
     };
   }
 
-
   // ============================================================
   // OBTENER ID ALUMNO POR ID USUARIO
   // ============================================================
@@ -47,20 +46,19 @@ export class AlumnosController {
   @Get('obtenerIdAlumnoPorUsuario/:id_usuario')
   @HttpCode(HttpStatus.OK)
   async obtenerIdAlumnoPorUsuario(
-    @Param('id_usuario') id_usuario: string
+    @Param('id_usuario') id_usuario: string,
   ) {
-
-    console.log('=================================');
-    console.log('BUSCANDO ID ALUMNO');
-    console.log('ID USUARIO:', id_usuario);
-    console.log('=================================');
+    console.log(
+      '[ALUMNOS] Buscando ID de alumno:',
+      id_usuario,
+    );
 
     const result =
       await this.alumnosService.obtenerIdAlumnoPorUsuario(
-        Number(id_usuario)
+        Number(id_usuario),
       );
 
-    console.log('ID ALUMNO OBTENIDO:', result);
+    console.log('[ALUMNOS] ID obtenido:', result);
 
     return {
       statusCode: HttpStatus.OK,
@@ -69,29 +67,34 @@ export class AlumnosController {
     };
   }
 
-
   // ============================================================
   // BUSCAR ALUMNO POR EMAIL
   // ============================================================
 
   @Get('findByEmail/:email')
   @HttpCode(HttpStatus.OK)
-  async findByEmail(
-    @Param('email') email: string
-  ) {
-
+  async findByEmail(@Param('email') email: string) {
     const result =
       await this.alumnosService.encontrarAlumnoPorMail(
-        email
+        email,
       );
+
+    if (!result) {
+      throw new BadRequestException(
+        'No se encontró el usuario.',
+      );
+    }
+
+    // No devolver hashes de contraseñas.
+    const { contrasena, password, ...usuario } =
+      result as any;
 
     return {
       statusCode: HttpStatus.OK,
       message: 'Alumno encontrado',
-      data: result,
+      data: usuario,
     };
   }
-
 
   // ============================================================
   // REGISTRAR ALUMNO
@@ -99,14 +102,13 @@ export class AlumnosController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createAlumnoDto: CreateAlumnoDto) {
-    console.log(
-      'BODY RECIBIDO:',
-      JSON.stringify(createAlumnoDto, null, 2),
-    );
-
+  async create(
+    @Body() createAlumnoDto: CreateAlumnoDto,
+  ) {
     const result =
-      await this.alumnosService.RegistrarAlumno(createAlumnoDto);
+      await this.alumnosService.RegistrarAlumno(
+        createAlumnoDto,
+      );
 
     return {
       statusCode: HttpStatus.CREATED,
@@ -115,38 +117,45 @@ export class AlumnosController {
     };
   }
 
+  // ============================================================
+  // SOLICITAR RECUPERACIÓN DE CONTRASEÑA
+  // ============================================================
+
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
-      @Body('email') email: string,
+    @Body('email') email: string,
   ) {
-      const result =
-          await this.alumnosService.solicitarRecuperacion(
-              email,
-          );
+    const result =
+      await this.alumnosService.solicitarRecuperacion(
+        email,
+      );
 
-      return {
-          statusCode: HttpStatus.OK,
-          ...result,
-      };
+    return {
+      statusCode: HttpStatus.OK,
+      ...result,
+    };
   }
+
+  // ============================================================
+  // RESTABLECER CONTRASEÑA
+  // ============================================================
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(
-      @Body('token') token: string,
-      @Body('nuevaContrasena') nuevaContrasena: string,
+    @Body('token') token: string,
+    @Body('nuevaContrasena') nuevaContrasena: string,
   ) {
+    const result =
+      await this.alumnosService.restablecerContrasena(
+        token,
+        nuevaContrasena,
+      );
 
-      const result =
-          await this.alumnosService.restablecerContrasena(
-              token,
-              nuevaContrasena,
-          );
-
-      return {
-          statusCode: HttpStatus.OK,
-          ...result,
-      };
+    return {
+      statusCode: HttpStatus.OK,
+      ...result,
+    };
   }
 }
