@@ -1,7 +1,11 @@
+
 import {
   Body,
   Controller,
   Post,
+  Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 
 import { PagosService } from './pagos.service';
@@ -12,12 +16,13 @@ export class PagosController {
     private readonly pagosService: PagosService,
   ) {}
 
+  // ============================================================
+  // CREAR PAGO
+  // ============================================================
+
   @Post('crear')
   async crearPago(
-    @Body()
-    body: {
-      id_cuota: number;
-    },
+    @Body() body: { id_cuota: number },
   ) {
     const idCuota = Number(body?.id_cuota);
 
@@ -28,8 +33,35 @@ export class PagosController {
       };
     }
 
-    return await this.pagosService.crearPago(
-      idCuota,
-    );
+    return this.pagosService.crearPago(idCuota);
+  }
+
+  // ============================================================
+  // WEBHOOK MERCADO PAGO
+  // ============================================================
+
+  @Post('webhook')
+  @HttpCode(HttpStatus.OK)
+  async webhookMercadoPago(
+    @Body() body: any,
+    @Query() query: Record<string, any>,
+  ) {
+    const idMercadoPago =
+      body?.data?.id ??
+      body?.id ??
+      query?.['data.id'] ??
+      query?.id;
+
+    const id = Number(idMercadoPago);
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return {
+        success: false,
+        procesado: false,
+        mensaje: 'Notificación sin ID de pago válido',
+      };
+    }
+
+    return this.pagosService.procesarWebhookMercadoPago(id);
   }
 }

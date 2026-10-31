@@ -75,14 +75,13 @@ export class PagosRepository {
     return result.rows[0] ?? null;
   }
 
+
   async registrarPago(
     idCuota: number,
     monto: number,
     metodoPago: string,
     idMercadoPago: number | string,
   ) {
-    // El INSERT y la actualización de la cuota se realizan
-    // dentro de una única sentencia SQL.
     const result = await this.databaseService.query(
       `
       WITH nuevo_pago AS (
@@ -102,8 +101,9 @@ export class PagosRepository {
           $3::bigint,
           $4
         )
-        RETURNING id_pago, id_cuota
+        RETURNING id_pago, id_cuota, monto
       ),
+
       cuota_actualizada AS (
         UPDATE cuota c
         SET estado = CASE
@@ -111,16 +111,20 @@ export class PagosRepository {
             SELECT COALESCE(SUM(p.monto), 0)
             FROM pago p
             WHERE p.id_cuota = c.id_cuota
-              AND p.estado <> 'Anulado'
-          ) >= c.monto
+              AND LOWER(TRIM(p.estado)) <> 'anulado'
+          ) + np.monto >= c.monto
           THEN 'Pagado'
           ELSE 'Pendiente'
         END
         FROM nuevo_pago np
         WHERE c.id_cuota = np.id_cuota
-        RETURNING c.id_cuota
+        RETURNING c.id_cuota, c.estado
       )
-      SELECT np.id_pago
+
+      SELECT
+        np.id_pago,
+        np.id_cuota,
+        ca.estado AS estado_cuota
       FROM nuevo_pago np
       INNER JOIN cuota_actualizada ca
         ON ca.id_cuota = np.id_cuota
