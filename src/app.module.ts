@@ -24,16 +24,14 @@ import { CreditosModule } from './creditos/creditos.module';
 
 import { MercadopagoModule } from './integrations/mercadopago/mercadopago.module';
 
-@Module({
+    @Module({
     imports: [
-
         ConfigModule.forRoot({
-            isGlobal: true,
-
-            load: [
-                databaseConfig,
-            ],
+        isGlobal: true,
+        load: [databaseConfig],
         }),
+
+        AlumnosModule,
 
         ScheduleModule.forRoot(),
 
