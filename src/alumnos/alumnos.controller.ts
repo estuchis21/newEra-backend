@@ -40,7 +40,7 @@ export class AlumnosController {
   }
 
   // ============================================================
-  // OBTENER ID ALUMNO POR ID USUARIO
+  // OBTENER ID ALUMNO POR USUARIO
   // ============================================================
 
   @Get('obtenerIdAlumnoPorUsuario/:id_usuario')
@@ -48,17 +48,18 @@ export class AlumnosController {
   async obtenerIdAlumnoPorUsuario(
     @Param('id_usuario') id_usuario: string,
   ) {
-    console.log(
-      '[ALUMNOS] Buscando ID de alumno:',
-      id_usuario,
-    );
+    const id = Number(id_usuario);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new BadRequestException(
+        'ID de usuario inválido.',
+      );
+    }
 
     const result =
       await this.alumnosService.obtenerIdAlumnoPorUsuario(
-        Number(id_usuario),
+        id,
       );
-
-    console.log('[ALUMNOS] ID obtenido:', result);
 
     return {
       statusCode: HttpStatus.OK,
@@ -85,9 +86,11 @@ export class AlumnosController {
       );
     }
 
-    // No devolver hashes de contraseñas.
-    const { contrasena, password, ...usuario } =
-      result as any;
+    const {
+      contrasena,
+      password,
+      ...usuario
+    } = result;
 
     return {
       statusCode: HttpStatus.OK,

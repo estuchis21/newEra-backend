@@ -11,7 +11,6 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
 import { MailService } from '../mail/mail.service';
-
 import { AlumnosRepository } from './alumnos.repository/alumnos.repository';
 
 import { CreateAlumnoDto } from './dto/createalumno.dto';
@@ -45,7 +44,9 @@ export class AlumnosService {
   // ============================================================
 
   async encontrarAlumnoPorMail(email: string) {
-    return this.alumnosRepository.findByEmail(email);
+    return this.alumnosRepository.findByEmail(
+      email.trim().toLowerCase(),
+    );
   }
 
   // ============================================================
@@ -64,7 +65,6 @@ export class AlumnosService {
 
   async login(dto: LoginDto) {
     const email = dto.email?.trim().toLowerCase();
-
     const contrasenaIngresada = dto.contrasena;
 
     if (!email || !contrasenaIngresada) {
@@ -73,29 +73,28 @@ export class AlumnosService {
       );
     }
 
-    // Buscar usuario
-    const usuario = await this.alumnosRepository.findByEmail(
-      email,
-    );
+    // Buscar usuario en PostgreSQL
+    const usuario =
+      await this.alumnosRepository.findByEmail(email);
 
     console.log('[LOGIN] Usuario encontrado:', !!usuario);
 
     if (!usuario) {
-      console.log('[LOGIN] Motivo: usuario inexistente');
+      console.log('[LOGIN] Usuario inexistente');
 
       throw new UnauthorizedException(
         'Email o contraseña incorrectos.',
       );
     }
 
-    // Comprobar contraseña recuperada
+    // Revisar estructura devuelta por PostgreSQL
     console.log(
       '[LOGIN] Propiedades recibidas:',
       Object.keys(usuario),
     );
 
     const contrasenaBD =
-      usuario.contrasena || (usuario as any).password;
+      usuario.contrasena || usuario.password;
 
     console.log(
       '[LOGIN] Contraseña recuperada:',
@@ -110,7 +109,7 @@ export class AlumnosService {
 
     if (!contrasenaBD) {
       console.log(
-        '[LOGIN] Motivo: contraseña inexistente',
+        '[LOGIN] No se encontró el campo de contraseña',
       );
 
       throw new UnauthorizedException(
@@ -118,7 +117,7 @@ export class AlumnosService {
       );
     }
 
-    // Comparar contraseña
+    // Comparar contraseña ingresada con hash
     const passwordValida = await bcrypt.compare(
       contrasenaIngresada,
       contrasenaBD,
@@ -131,11 +130,22 @@ export class AlumnosService {
 
     if (!passwordValida) {
       console.log(
-        '[LOGIN] Motivo: contraseña no coincide',
+        '[LOGIN] La contraseña no coincide',
       );
 
       throw new UnauthorizedException(
         'Email o contraseña incorrectos.',
+      );
+    }
+
+    // Verificar datos necesarios para JWT
+    if (!usuario.id_usuario || !usuario.id_rol) {
+      console.error(
+        '[LOGIN] Faltan id_usuario o id_rol',
+      );
+
+      throw new UnauthorizedException(
+        'No se pudieron validar los datos del usuario.',
       );
     }
 
@@ -146,13 +156,11 @@ export class AlumnosService {
       id_rol: usuario.id_rol,
     };
 
-    const access_token = await this.jwtService.signAsync(
-      payload,
-    );
+    const access_token =
+      await this.jwtService.signAsync(payload);
 
     console.log('[LOGIN] Autenticación exitosa');
 
-    // Respuesta
     return {
       usuario: {
         id_usuario: usuario.id_usuario,
@@ -170,6 +178,12 @@ export class AlumnosService {
   // ============================================================
 
   async solicitarRecuperacion(email: string) {
+    if (!email) {
+      throw new BadRequestException(
+        'El email es obligatorio.',
+      );
+    }
+
     const usuario =
       await this.alumnosRepository.findByEmail(
         email.trim().toLowerCase(),
@@ -188,22 +202,18 @@ export class AlumnosService {
       );
     }
 
-    // Generar token
     const token = randomBytes(32).toString('hex');
 
-    // Expiración: 30 minutos
     const fechaExpiracion = new Date(
       Date.now() + 30 * 60 * 1000,
     );
 
-    // Guardar token
     await this.alumnosRepository.crearTokenRecuperacion(
       usuario.id_usuario,
       token,
       fechaExpiracion,
     );
 
-    // Enviar email
     await this.mailService.enviarEmailRecuperacion(
       usuario.email,
       token,
@@ -229,7 +239,12 @@ export class AlumnosService {
       );
     }
 
-    // Buscar token
+    if (nuevaContrasena.length < 6) {
+      throw new BadRequestException(
+        'La contraseña debe tener al menos 6 caracteres.',
+      );
+    }
+
     const tokenData =
       await this.alumnosRepository.buscarTokenRecuperacion(
         token,
@@ -241,14 +256,12 @@ export class AlumnosService {
       );
     }
 
-    // Verificar uso
     if (tokenData.utilizado) {
       throw new BadRequestException(
         'El enlace ya fue utilizado.',
       );
     }
 
-    // Verificar expiración
     if (
       new Date() >
       new Date(tokenData.fecha_expiracion)
@@ -258,19 +271,16 @@ export class AlumnosService {
       );
     }
 
-    // Hashear nueva contraseña
     const hash = await bcrypt.hash(
       nuevaContrasena,
       10,
     );
 
-    // Cambiar contraseña
     await this.alumnosRepository.cambiarContrasena(
       tokenData.id_usuario,
       hash,
     );
 
-    // Marcar token como utilizado
     await this.alumnosRepository.marcarTokenUtilizado(
       tokenData.id_token,
     );
