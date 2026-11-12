@@ -13,87 +13,80 @@ export class GruposService {
     private readonly gruposRepository: GruposRepository,
   ) {}
 
-  async crearGrupo(dto: Grupos_Alumnos) {
+
+    async crearGrupo(dto: Grupos_Alumnos) {
     if (dto.cupo_max <= 0) {
-      throw new ConflictException(
-        'El cupo debe ser mayor a 0',
-      );
+        throw new ConflictException('El cupo debe ser mayor a 0');
     }
 
-    if (!dto.horarios || dto.horarios.length === 0) {
-      throw new ConflictException(
+    if (!Array.isArray(dto.horarios) || dto.horarios.length === 0) {
+        throw new ConflictException(
         'El grupo debe tener al menos un horario.',
-      );
+        );
     }
 
     const dias: Record<string, string> = {
-      lunes: 'Lunes',
-      martes: 'Martes',
-      miércoles: 'Miércoles',
-      miercoles: 'Miércoles',
-      jueves: 'Jueves',
-      viernes: 'Viernes',
-      sábado: 'Sábado',
-      sabado: 'Sábado',
-      domingo: 'Domingo',
+        lunes: 'Lunes',
+        martes: 'Martes',
+        miercoles: 'Miércoles',
+        jueves: 'Jueves',
+        viernes: 'Viernes',
+        sabado: 'Sábado',
+        domingo: 'Domingo',
     };
 
-    const horariosNormalizados = dto.horarios.map((horario) => {
-      const dia = dias[horario.dia_semana.toLowerCase()];
+    const horarios = dto.horarios.map((horario) => {
+        const diaNormalizado = horario.dia_semana
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
 
-      if (!dia) {
+        const dia = dias[diaNormalizado];
+
+        if (!dia) {
         throw new ConflictException(
-          `Día de la semana no válido: ${horario.dia_semana}`,
+            `Día de la semana inválido: ${horario.dia_semana}`,
         );
-      }
+        }
 
-      if (horario.hora_inicio >= horario.hora_fin) {
+        if (horario.hora_inicio >= horario.hora_fin) {
         throw new ConflictException(
-          `La hora de inicio debe ser anterior a la hora de fin (${dia}).`,
+            `La hora de inicio debe ser anterior a la hora de fin (${dia}).`,
         );
-      }
+        }
 
-      return {
+        return {
         dia_semana: dia,
         hora_inicio: horario.hora_inicio,
         hora_fin: horario.hora_fin,
-      };
+        };
     });
 
     try {
-      const grupo = await this.gruposRepository.crearGrupo(
+        const resultado = await this.gruposRepository.crearGrupo(
         dto.id_disciplina,
         dto.id_profesor,
         dto.nivel,
         dto.cupo_max,
-        horariosNormalizados,
-      );
+        horarios,
+        );
 
-      return {
+        return {
         message: 'Grupo creado correctamente',
-        id_grupo: grupo.id_grupo,
-        horarios_guardados: grupo.horarios_guardados,
-      };
+        ...resultado,
+        };
     } catch (error: any) {
-      if (error.code === '23505') {
+        if (error.code === '23505') {
         throw new ConflictException(
-          'No se puede crear el grupo: ya existe un grupo con esa disciplina, profesor y nivel.',
+            'No se puede crear el grupo: ya existe un grupo con esa disciplina, profesor y nivel.',
         );
-      }
+        }
 
-      if (error.code === '23503') {
-        throw new ConflictException(
-          'No se puede crear el grupo porque la disciplina o el profesor indicado no existe.',
-        );
-      }
-
-      console.error('Error creando grupo:', error);
-
-      throw new ConflictException(
-        'Error creando grupo. No se guardaron los datos.',
-      );
+        throw error;
     }
-  }
+    }
+
 
   async obtenerGrupos(id_alumno: number) {
     const clases = await this.gruposRepository.obtenerGruposPorAlumno(

@@ -19,7 +19,9 @@ export class ClasesCronService {
     // CALL generar_clases_del_dia()
     // ============================================================
 
-    @Cron('0 0 * * *')
+    @Cron('0 0 * * *', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+    })
     async generarClasesDelDia(): Promise<void> {
 
         this.logger.log(
