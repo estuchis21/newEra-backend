@@ -82,7 +82,7 @@ export class CuotasRepository {
           -- la cuota correspondiente al mes actual
           ELSE EXISTS (
             SELECT 1
-            FROM cuotas c
+            FROM cuota c
             WHERE c.id_alumno = $1
               AND c.periodo = TO_CHAR(CURRENT_DATE, 'MM/YYYY')
               AND (
