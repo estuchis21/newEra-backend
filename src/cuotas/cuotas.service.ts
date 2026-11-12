@@ -95,25 +95,23 @@ export class CuotasService {
   }
 
   async verificarAccesoAlumno(idAlumno: number) {
-    if (!Number.isInteger(idAlumno) || idAlumno <= 0) {
-      throw new BadRequestException(
-        'El ID del alumno no es válido',
-      );
+    const puedeAcceder =
+      await this.cuotasRepository.puedeAccederAlumno(idAlumno);
+
+    if (puedeAcceder) {
+      return {
+        puedeAcceder: true,
+        motivo: null,
+        mensaje: null,
+      };
     }
 
-    const puedeAcceder =
-      await this.cuotasRepository.puedeAccederAlumno(
-        idAlumno,
-      );
-
     return {
-      puedeAcceder,
-      motivo: puedeAcceder
-        ? null
-        : 'CUOTA_PENDIENTE',
-      mensaje: puedeAcceder
-        ? 'El alumno puede utilizar el sistema.'
-        : 'Tenés que abonar la cuota del mes para continuar.',
+      puedeAcceder: false,
+      motivo: 'cuota_pendiente',
+      mensaje:
+        'Acceso académico restringido. Tenés una cuota pendiente. Podés consultar tus cuotas y realizar el pago desde esta sección.',
     };
-  }
+
+    }
 }

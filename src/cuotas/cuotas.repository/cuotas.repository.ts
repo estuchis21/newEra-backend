@@ -71,38 +71,43 @@ export class CuotasRepository {
    * almacenado en cuota.estado.
    */
   async puedeAccederAlumno(idAlumno: number): Promise<boolean> {
-    const result = await this.databaseService.query(
+    const resultado = await this.databaseService.query(
       `
       SELECT
         CASE
+          -- Durante los primeros 10 días todos pueden acceder
           WHEN EXTRACT(DAY FROM CURRENT_DATE) <= 10 THEN TRUE
 
+          -- Desde el día 11 se requiere tener pagada
+          -- la cuota correspondiente al mes actual
           ELSE EXISTS (
             SELECT 1
-            FROM public.cuota c
+            FROM cuotas c
             WHERE c.id_alumno = $1
-              AND c.periodo = DATE_TRUNC('month', CURRENT_DATE)::DATE
+              AND c.periodo = TO_CHAR(CURRENT_DATE, 'MM/YYYY')
               AND (
-                LOWER(TRIM(c.estado)) = 'pagado'
-                OR COALESCE((
-                  SELECT SUM(p.monto)
-                  FROM public.pago p
-                  WHERE p.id_cuota = c.id_cuota
-                    AND LOWER(TRIM(p.estado)) IN (
-                      'aprobado',
-                      'approved'
-                    )
-                ), 0) >= c.monto
+                LOWER(COALESCE(c.estado, '')) = 'pagado'
+                OR COALESCE(
+                  (
+                    SELECT SUM(p.monto)
+                    FROM pagos p
+                    WHERE p.id_cuota = c.id
+                      AND LOWER(COALESCE(p.estado, '')) IN (
+                        'aprobado',
+                        'approved'
+                      )
+                  ),
+                  0
+                ) >= c.monto
               )
           )
-        END AS puede_acceder;
+        END AS puede_acceder
       `,
       [idAlumno],
     );
 
-    return result.rows[0]?.puede_acceder === true;
+    return resultado.rows[0]?.puede_acceder === true;
   }
-
   // ============================================================
   // CREAR CUOTA DEL MES ACTUAL
   // ============================================================
