@@ -70,6 +70,7 @@ export class CuotasRepository {
    * Se consideran los pagos aprobados y no solamente el estado
    * almacenado en cuota.estado.
    */
+
   async puedeAccederAlumno(idAlumno: number): Promise<boolean> {
     const resultado = await this.databaseService.query(
       `
@@ -84,7 +85,8 @@ export class CuotasRepository {
             SELECT 1
             FROM cuota c
             WHERE c.id_alumno = $1
-              AND c.periodo = TO_CHAR(CURRENT_DATE, 'MM/YYYY')
+              AND DATE_TRUNC('month', c.periodo) =
+                  DATE_TRUNC('month', CURRENT_DATE)
               AND (
                 LOWER(COALESCE(c.estado, '')) = 'pagado'
                 OR COALESCE(
@@ -108,6 +110,7 @@ export class CuotasRepository {
 
     return resultado.rows[0]?.puede_acceder === true;
   }
+
   // ============================================================
   // CREAR CUOTA DEL MES ACTUAL
   // ============================================================
