@@ -1,4 +1,6 @@
+
 import { Injectable } from '@nestjs/common';
+import { PoolClient } from 'pg';
 import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
@@ -7,8 +9,12 @@ export class InscripcionesRepository {
     private readonly databaseService: DatabaseService,
   ) {}
 
-  async crearInscripcion(idAlumno: number, idGrupo: number) {
-    await this.databaseService.query(
+  async crearInscripcion(
+    client: PoolClient,
+    idAlumno: number,
+    idGrupo: number,
+  ) {
+    await client.query(
       `CALL public.crear_inscripcion($1, $2)`,
       [idAlumno, idGrupo],
     );
@@ -19,26 +25,15 @@ export class InscripcionesRepository {
     };
   }
 
-  async eliminarInscripcion(idInscripcion: number) {
-    const result = await this.databaseService.query(
-      `SELECT id_alumno, id_grupo
-       FROM public.inscripcion
-       WHERE id_inscripcion = $1`,
-      [idInscripcion],
-    );
-
-    const row = result.rows[0];
-
-    if (!row) {
-      return {
-        success: false,
-        mensaje: 'Inscripción inexistente.',
-      };
-    }
-
-    await this.databaseService.query(
+  async eliminarInscripcion(
+    client: PoolClient,
+    idInscripcion: number,
+    idAlumno: number,
+    idGrupo: number,
+  ) {
+    await client.query(
       `SELECT public.cancelar_inscripcion($1, $2)`,
-      [row.id_alumno, row.id_grupo],
+      [idAlumno, idGrupo],
     );
 
     return {
@@ -47,13 +42,20 @@ export class InscripcionesRepository {
     };
   }
 
-  async cancelarInscripcion(idAlumno: number, idGrupo: number) {
-    await this.databaseService.query(
-      `CALL public.cancelar_inscripcion($1, $2)`,
+  async cancelarInscripcion(
+    client: PoolClient,
+    idAlumno: number,
+    idGrupo: number,
+  ) {
+    await client.query(
+      `SELECT public.cancelar_inscripcion($1, $2)`,
       [idAlumno, idGrupo],
     );
 
-    return { success: true };
+    return {
+      success: true,
+      mensaje: 'Inscripción cancelada correctamente.',
+    };
   }
 
   async obtenerInscripcionesPorAlumno(idAlumno: number) {

@@ -1,3 +1,4 @@
+
 import {
   Injectable,
   Logger,
@@ -6,6 +7,7 @@ import {
 
 import { Cron } from '@nestjs/schedule';
 
+import { DatabaseService } from '../database/database.service';
 import { CuotasRepository } from './cuotas.repository/cuotas.repository';
 
 @Injectable()
@@ -14,9 +16,28 @@ export class CuotasService {
     new Logger(CuotasService.name);
 
   constructor(
-    private readonly cuotasRepository:
-      CuotasRepository,
+    private readonly cuotasRepository: CuotasRepository,
+    private readonly databaseService: DatabaseService,
   ) {}
+
+  // ============================================================
+  // RECALCULAR CUOTA DE UN ALUMNO
+  // ============================================================
+
+  async recalcularCuotaAlumno(idAlumno: number) {
+    if (!Number.isInteger(idAlumno) || idAlumno <= 0) {
+      throw new BadRequestException(
+        'El ID del alumno no es válido.',
+      );
+    }
+
+    return this.databaseService.transaction(async (client) => {
+      return this.cuotasRepository.recalcularCuotaMes(
+        client,
+        idAlumno,
+      );
+    });
+  }
 
   // ============================================================
   // CREAR CUOTA
@@ -26,25 +47,19 @@ export class CuotasService {
     idAlumno: number,
     idPaquete: number,
   ) {
-    if (
-      !Number.isInteger(idAlumno) ||
-      idAlumno <= 0
-    ) {
+    if (!Number.isInteger(idAlumno) || idAlumno <= 0) {
       throw new BadRequestException(
         'El ID del alumno no es válido',
       );
     }
 
-    if (
-      !Number.isInteger(idPaquete) ||
-      idPaquete <= 0
-    ) {
+    if (!Number.isInteger(idPaquete) || idPaquete <= 0) {
       throw new BadRequestException(
         'El ID del paquete no es válido',
       );
     }
 
-    return await this.cuotasRepository.crearCuota(
+    return this.cuotasRepository.crearCuota(
       idAlumno,
       idPaquete,
     );
@@ -55,16 +70,16 @@ export class CuotasService {
   // ============================================================
 
   @Cron('0 0 1 * *')
-  async generarCuotasAutomaticamente(monto: number) {
-    this.logger.log(
-      'Generando cuotas mensuales...',
-    );
+  async generarCuotasAutomaticamente() {
+    this.logger.log('Generando cuotas mensuales...');
 
     try {
-      await this.cuotasRepository.generarCuotasMes(monto);
+      // Todavía no activar esta generación:
+      // debe reemplazarse por la generación individual
+      // basada en grupos activos y configuración persistente.
 
-      this.logger.log(
-        'Cuotas mensuales generadas correctamente',
+      this.logger.warn(
+        'Generación automática pendiente de implementar.',
       );
     } catch (error) {
       this.logger.error(
@@ -78,21 +93,19 @@ export class CuotasService {
   // OBTENER CUOTAS DE UN ALUMNO
   // ============================================================
 
-  async obtenerCuotasAlumno(
-    idAlumno: number,
-  ) {
-    if (
-      !Number.isInteger(idAlumno) ||
-      idAlumno <= 0
-    ) {
+  async obtenerCuotasAlumno(idAlumno: number) {
+    if (!Number.isInteger(idAlumno) || idAlumno <= 0) {
       throw new BadRequestException(
         'El ID del alumno no es válido',
       );
     }
 
-    return await this.cuotasRepository
-      .obtenerCuotasAlumno(idAlumno);
+    return this.cuotasRepository.obtenerCuotasAlumno(idAlumno);
   }
+
+  // ============================================================
+  // VERIFICAR ACCESO
+  // ============================================================
 
   async verificarAccesoAlumno(idAlumno: number) {
     const puedeAcceder =
@@ -112,6 +125,5 @@ export class CuotasService {
       mensaje:
         'Acceso académico restringido. Tenés una cuota pendiente. Podés consultar tus cuotas y realizar el pago desde esta sección.',
     };
-
-    }
+  }
 }

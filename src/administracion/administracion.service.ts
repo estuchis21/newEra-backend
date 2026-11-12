@@ -1,9 +1,12 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { CuotasRepository } from '../cuotas/cuotas.repository/cuotas.repository';
 
 @Injectable()
 export class AdministracionService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService,
+    private readonly cuotasRepository: CuotasRepository,
+  ) {}
 
   async verificarAdministrador(idUsuario: number): Promise<void> {
     const result = await this.database.query(
@@ -117,6 +120,22 @@ export class AdministracionService {
        ORDER BY c.vencimiento, u.apellido, u.nombre`,
     );
     return result.rows;
+  }
+
+  async recalcularCuotaAlumno(
+    idUsuario: number,
+    idAlumno: number,
+  ) {
+    // Verificar que quien solicita la operación sea administrador.
+    await this.verificarAdministrador(idUsuario);
+
+    // Ejecutar el recálculo dentro de una transacción.
+    return this.database.transaction(async (client) => {
+      return this.cuotasRepository.recalcularCuotaMes(
+        client,
+        idAlumno,
+      );
+    });
   }
 
   async pagosRecientes(idUsuario: number) {

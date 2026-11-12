@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 
+import { PoolClient } from 'pg';
+
 @Injectable()
 export class CuotasRepository {
   constructor(
@@ -73,6 +75,226 @@ export class CuotasRepository {
 
   
   
+  async recalcularCuotaMes(
+      client: PoolClient,
+      idAlumno: number,
+  ) {
+      // Serializa los recálculos del mismo alumno.
+      const alumno = await client.query(
+          `
+          SELECT id_alumno
+          FROM public.alumnos
+          WHERE id_alumno = $1
+          FOR UPDATE
+          `,
+          [idAlumno],
+      );
+
+      if (alumno.rows.length === 0) {
+          throw new NotFoundException(
+              `No existe el alumno con ID ${idAlumno}.`,
+          );
+      }
+
+      // Contar únicamente inscripciones y grupos activos.
+      const gruposResult = await client.query(
+          `
+          SELECT COUNT(*)::INTEGER AS cantidad
+          FROM public.inscripcion i
+          INNER JOIN public.grupos g
+              ON g.id_grupo = i.id_grupo
+          WHERE i.id_alumno = $1
+            AND LOWER(TRIM(i.estado)) = 'activo'
+            AND g.activo = TRUE
+          `,
+          [idAlumno],
+      );
+
+      const cantidadGrupos = Number(
+          gruposResult.rows[0].cantidad,
+      );
+
+      // Si no tiene grupos activos, conservar la cuota existente.
+      if (cantidadGrupos === 0) {
+          return {
+              actualizada: false,
+              motivo: 'El alumno no tiene grupos activos. Se conserva la cuota.',
+          };
+      }
+
+      // Leer la configuración persistente.
+      const configuracion = await client.query(
+          `
+          SELECT
+              precio_base,
+              porcentaje_adicional_grupo
+          FROM public.configuracion_cuotas
+          WHERE id = 1
+          `,
+      );
+
+      if (configuracion.rows.length === 0) {
+          throw new NotFoundException(
+              'No existe la configuración de cuotas.',
+          );
+      }
+
+      const precioBase = Number(
+          configuracion.rows[0].precio_base,
+      );
+
+      const porcentajeAdicional = Number(
+          configuracion.rows[0].porcentaje_adicional_grupo,
+      );
+
+      if (
+          !Number.isFinite(precioBase) ||
+          precioBase <= 0 ||
+          !Number.isFinite(porcentajeAdicional) ||
+          porcentajeAdicional < 0
+      ) {
+          throw new BadRequestException(
+              'La configuración de cuotas no es válida.',
+          );
+      }
+
+      // Calcular el importe mensual.
+      const nuevoMonto = Number(
+          (
+              precioBase *
+              (
+                  1 +
+                  (porcentajeAdicional / 100) *
+                  (cantidadGrupos - 1)
+              )
+          ).toFixed(2),
+      );
+
+      // Buscar y bloquear la cuota del período actual.
+      const cuotaResult = await client.query(
+          `
+          SELECT
+              id_cuota,
+              monto
+          FROM public.cuota
+          WHERE id_alumno = $1
+            AND periodo = DATE_TRUNC('month', CURRENT_DATE)::DATE
+          FOR UPDATE
+          `,
+          [idAlumno],
+      );
+
+      let cuota = cuotaResult.rows[0];
+
+      // Si no existe, crearla.
+      if (!cuota) {
+          const insertResult = await client.query(
+              `
+              INSERT INTO public.cuota (
+                  id_alumno,
+                  periodo,
+                  monto,
+                  vencimiento,
+                  estado,
+                  mes_anio
+              )
+              VALUES (
+                  $1,
+                  DATE_TRUNC('month', CURRENT_DATE)::DATE,
+                  $2,
+                  (
+                      DATE_TRUNC('month', CURRENT_DATE)
+                      + INTERVAL '9 days'
+                  )::DATE,
+                  'Pendiente',
+                  TO_CHAR(CURRENT_DATE, 'MM/YYYY')
+              )
+              ON CONFLICT (id_alumno, periodo)
+              DO NOTHING
+              RETURNING id_cuota, monto
+              `,
+              [idAlumno, nuevoMonto],
+          );
+
+          cuota = insertResult.rows[0];
+
+          // Puede existir si otra operación insertó la cuota.
+          if (!cuota) {
+              const existente = await client.query(
+                  `
+                  SELECT id_cuota, monto
+                  FROM public.cuota
+                  WHERE id_alumno = $1
+                    AND periodo = DATE_TRUNC('month', CURRENT_DATE)::DATE
+                  FOR UPDATE
+                  `,
+                  [idAlumno],
+              );
+
+              cuota = existente.rows[0];
+          }
+
+          if (!cuota) {
+              throw new BadRequestException(
+                  'No se pudo obtener la cuota del período actual.',
+              );
+          }
+      }
+
+      // Consultar únicamente pagos aprobados.
+      const pagosResult = await client.query(
+          `
+          SELECT COALESCE(SUM(monto), 0) AS total_pagado
+          FROM public.pago
+          WHERE id_cuota = $1
+            AND LOWER(TRIM(estado)) IN ('aprobado', 'approved')
+          `,
+          [cuota.id_cuota],
+      );
+
+      const totalPagado = Number(
+          pagosResult.rows[0].total_pagado,
+      );
+
+      const montoAnterior = Number(cuota.monto);
+
+      // Una cuota completamente pagada no se modifica.
+      if (totalPagado >= montoAnterior) {
+          return {
+              actualizada: false,
+              motivo: 'La cuota ya estaba completamente pagada.',
+              idCuota: cuota.id_cuota,
+              monto: montoAnterior,
+              totalPagado,
+              saldoPendiente: 0,
+          };
+      }
+
+      // Actualizar el importe sin modificar los pagos registrados.
+      const actualizacion = await client.query(
+          `
+          UPDATE public.cuota
+          SET monto = $2
+          WHERE id_cuota = $1
+          RETURNING id_cuota, monto
+          `,
+          [cuota.id_cuota, nuevoMonto],
+      );
+
+      return {
+          actualizada: true,
+          idCuota: actualizacion.rows[0].id_cuota,
+          cantidadGrupos,
+          montoAnterior,
+          nuevoMonto,
+          totalPagado,
+          saldoPendiente: Math.max(
+              nuevoMonto - totalPagado,
+              0,
+          ),
+      };
+  }
+
   async puedeAccederAlumno(idAlumno: number): Promise<boolean> {
     const resultado = await this.databaseService.query(
       `
