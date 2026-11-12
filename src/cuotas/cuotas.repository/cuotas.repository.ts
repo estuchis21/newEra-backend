@@ -72,6 +72,7 @@ export class CuotasRepository {
    */
 
   
+  
   async puedeAccederAlumno(idAlumno: number): Promise<boolean> {
     const resultado = await this.databaseService.query(
       `
@@ -91,7 +92,7 @@ export class CuotasRepository {
                   (
                     SELECT SUM(p.monto)
                     FROM pago p
-                    WHERE p.id_cuota = c.id
+                    WHERE p.id_cuota = c.id_cuota
                       AND LOWER(COALESCE(p.estado, '')) IN (
                         'aprobado',
                         'approved'
@@ -108,6 +109,7 @@ export class CuotasRepository {
 
     return resultado.rows[0]?.puede_acceder === true;
   }
+
 
 
   // ============================================================
