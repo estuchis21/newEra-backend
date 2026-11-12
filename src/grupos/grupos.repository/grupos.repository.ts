@@ -1,29 +1,76 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 
+export interface HorarioGrupoInput {
+  dia_semana: string;
+  hora_inicio: string;
+  hora_fin: string;
+}
+
 @Injectable()
 export class GruposRepository {
   constructor(
     private readonly databaseService: DatabaseService,
   ) {}
 
-  
   async crearGrupo(
     idDisciplina: number,
     idProfesor: number,
     nivel: string,
     cupoMax: number,
+    horarios: HorarioGrupoInput[],
   ) {
-    const result = await this.databaseService.query(
-      `SELECT public.crear_grupo($1, $2, $3, $4) AS id_grupo`,
-      [idDisciplina, idProfesor, nivel, cupoMax],
-    );
+    const client = await this.databaseService.getConnection();
 
-    return {
-      id_grupo: Number(result.rows[0].id_grupo),
-    };
+    try {
+      await client.query('BEGIN');
+
+      const result = await client.query(
+        `SELECT public.crear_grupo($1, $2, $3, $4) AS id_grupo`,
+        [idDisciplina, idProfesor, nivel, cupoMax],
+      );
+
+      const idGrupo = Number(result.rows[0]?.id_grupo);
+
+      if (!Number.isInteger(idGrupo) || idGrupo <= 0) {
+        throw new Error(
+          'La función crear_grupo no devolvió un ID de grupo válido.',
+        );
+      }
+
+      for (const horario of horarios) {
+        await client.query(
+          `
+          INSERT INTO horario_grupo (
+            id_grupo,
+            dia_semana,
+            hora_inicio,
+            hora_fin
+          )
+          VALUES ($1, $2, $3::time, $4::time)
+          `,
+          [
+            idGrupo,
+            horario.dia_semana,
+            horario.hora_inicio,
+            horario.hora_fin,
+          ],
+        );
+      }
+
+      await client.query('COMMIT');
+
+      return {
+        id_grupo: idGrupo,
+        horarios_guardados: horarios.length,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
-
 
   async actualizarGrupo(
     idGrupo: number,
@@ -58,7 +105,6 @@ export class GruposRepository {
     return result.rows[0] ?? null;
   }
 
-  
   async obtenerGruposPorAlumno(idAlumno: number) {
     const result = await this.databaseService.query(
       `
@@ -119,8 +165,6 @@ export class GruposRepository {
 
     return result.rows;
   }
-
-
 
   async sesionesPorAlumno(
     idAlumno: number,
@@ -381,26 +425,25 @@ export class GruposRepository {
 
   async alumnosPorGrupo(idGrupo: number) {
     const resultado = await this.databaseService.query(
-            `
-            SELECT DISTINCT
-                a.id_alumno,
-                u.nombre,
-                u.apellido,
-                u.dni
-            FROM inscripcion i
-            INNER JOIN alumnos a
-                ON a.id_alumno = i.id_alumno
-            INNER JOIN users u
-                ON u.id_usuario = a.id_usuario
-            WHERE i.id_grupo = $1
-            ORDER BY u.apellido, u.nombre;
-            `,
-            [idGrupo],
-        );
-
+      `
+      SELECT DISTINCT
+        a.id_alumno,
+        u.nombre,
+        u.apellido,
+        u.dni
+      FROM inscripcion i
+      INNER JOIN alumnos a
+        ON a.id_alumno = i.id_alumno
+      INNER JOIN users u
+        ON u.id_usuario = a.id_usuario
+      WHERE i.id_grupo = $1
+      ORDER BY u.apellido, u.nombre;
+      `,
+      [idGrupo],
+    );
 
     return resultado.rows;
-    }
+  }
 
   async liquidacionesPorProfesor(idProfesor: number) {
     const result = await this.databaseService.query(

@@ -1,4 +1,3 @@
-
 import {
   IsArray,
   IsString,
@@ -8,6 +7,7 @@ import {
   ValidateNested,
   IsInt,
   Min,
+  ArrayMinSize,
 } from 'class-validator';
 
 import { Type } from 'class-transformer';
@@ -58,6 +58,9 @@ export class Grupos_Alumnos {
   cupo_max!: number;
 
   @IsArray()
+  @ArrayMinSize(1, {
+    message: 'El grupo debe tener al menos un horario.',
+  })
   @ValidateNested({ each: true })
   @Type(() => HorarioGrupoDto)
   horarios!: HorarioGrupoDto[];
