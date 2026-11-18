@@ -1,101 +1,63 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Patch,
   Param,
   ParseIntPipe,
+  Patch,
+  Post,
 } from '@nestjs/common';
+import {
+  LiquidacionProfesorService,
+} from './liquidacion-profesor.service';
 
-import { LiquidacionProfesorService } from './liquidacion-profesor.service';
+import { RegistrarTransferenciaDto } from './dto/liquidacion-profesor.dto';
 
 @Controller('liquidaciones-profesores')
 export class LiquidacionProfesorController {
-  constructor(
-    private readonly liquidacionService: LiquidacionProfesorService,
-  ) {}
-
-  // =====================================================
-  // GENERAR LIQUIDACIONES DE UNA CUOTA PAGADA
-  // =====================================================
+  constructor(private readonly service: LiquidacionProfesorService) {}
 
   @Post('generar/:idCuota')
-  generarPorCuota(
-    @Param('idCuota', ParseIntPipe) idCuota: number,
-  ) {
-    return this.liquidacionService.generarPorCuota(idCuota);
+  generarPorCuota(@Param('idCuota', ParseIntPipe) idCuota: number) {
+    return this.service.generarPorCuota(idCuota);
   }
-
-  // =====================================================
-  // OBTENER TODAS
-  // =====================================================
 
   @Get()
   obtenerTodas() {
-    return this.liquidacionService.obtenerTodas();
+    return this.service.obtenerTodas();
   }
-
-  // =====================================================
-  // RESUMEN FINANCIERO
-  // =====================================================
 
   @Get('resumen')
   obtenerResumen() {
-    return this.liquidacionService.obtenerResumen();
+    return this.service.obtenerResumen();
   }
-
-  // =====================================================
-  // OBTENER POR PROFESOR
-  // =====================================================
 
   @Get('profesor/:idProfesor')
-  obtenerPorProfesor(
-    @Param('idProfesor', ParseIntPipe) idProfesor: number,
-  ) {
-    return this.liquidacionService.obtenerPorProfesor(idProfesor);
+  obtenerPorProfesor(@Param('idProfesor', ParseIntPipe) idProfesor: number) {
+    return this.service.obtenerPorProfesor(idProfesor);
   }
-
-  // =====================================================
-  // OBTENER POR CUOTA
-  // =====================================================
 
   @Get('cuota/:idCuota')
-  obtenerPorCuota(
-    @Param('idCuota', ParseIntPipe) idCuota: number,
-  ) {
-    return this.liquidacionService.obtenerPorCuota(idCuota);
+  obtenerPorCuota(@Param('idCuota', ParseIntPipe) idCuota: number) {
+    return this.service.obtenerPorCuota(idCuota);
   }
-
-  // =====================================================
-  // OBTENER POR ID
-  // =====================================================
 
   @Get(':idLiquidacion')
-  obtenerPorId(
-    @Param('idLiquidacion', ParseIntPipe) idLiquidacion: number,
-  ) {
-    return this.liquidacionService.obtenerPorId(idLiquidacion);
+  obtenerPorId(@Param('idLiquidacion', ParseIntPipe) id: number) {
+    return this.service.obtenerPorId(id);
   }
 
-  // =====================================================
-  // MARCAR COMO PAGADA
-  // =====================================================
-
+  // El cliente administrativo debe enviar los datos de la transferencia real.
   @Patch(':idLiquidacion/pagar')
   marcarPagada(
-    @Param('idLiquidacion', ParseIntPipe) idLiquidacion: number,
+    @Param('idLiquidacion', ParseIntPipe) id: number,
+    @Body() body: RegistrarTransferenciaDto,
   ) {
-    return this.liquidacionService.marcarPagada(idLiquidacion);
+    return this.service.marcarPagada(id, body);
   }
 
-  // =====================================================
-  // ANULAR
-  // =====================================================
-
   @Patch(':idLiquidacion/anular')
-  anular(
-    @Param('idLiquidacion', ParseIntPipe) idLiquidacion: number,
-  ) {
-    return this.liquidacionService.anular(idLiquidacion);
+  anular(@Param('idLiquidacion', ParseIntPipe) id: number) {
+    return this.service.anular(id);
   }
 }

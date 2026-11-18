@@ -1,114 +1,47 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  HttpCode,
+  HttpStatus,
   Post,
   Query,
 } from '@nestjs/common';
-
-import { MercadopagoService } from './mercadopago.service';
-
 import { PagosService } from '../../pagos/pagos.service';
 
 @Controller('pagos')
 export class MercadopagoController {
-  constructor(
-    private readonly mercadopagoService:
-      MercadopagoService,
+  constructor(private readonly pagosService: PagosService) {}
 
-    private readonly pagosService:
-      PagosService,
-  ) {}
-
-  // ==========================================================
-  // CREAR PREFERENCIA
-  // ==========================================================
-
+  // POST /api/pagos/crear-preferencia
   @Post('crear-preferencia')
-  async crearPreferencia(
-    @Body() body: { idCuota: number },
-  ) {
-    return this.pagosService.crearPago(
-      Number(body.idCuota),
-    );
+  crearPreferencia(@Body() body: { idCuota?: number }) {
+    const idCuota = Number(body?.idCuota);
+    if (!Number.isSafeInteger(idCuota) || idCuota <= 0) {
+      throw new BadRequestException('idCuota inválido.');
+    }
+    return this.pagosService.crearPago(idCuota);
   }
 
-  // ==========================================================
-  // WEBHOOK MERCADO PAGO
-  // ==========================================================
-
+  // POST /api/pagos/webhook
+  // Mercado Pago notifica; el backend consulta luego el pago real por API.
   @Post('webhook')
-  async webhook(
-    @Body() body: any,
-    @Query() query: any,
-  ) {
-    console.log(
-      '================================',
-    );
+  @HttpCode(HttpStatus.OK)
+  async webhook(@Body() body: any, @Query() query: Record<string, any>) {
+    const rawId =
+      body?.data?.id ??
+      body?.id ??
+      query?.['data.id'] ??
+      query?.id;
 
-    console.log(
-      'WEBHOOK RECIBIDO DE MERCADO PAGO',
-    );
-
-    console.log(
-      'BODY:',
-      body,
-    );
-
-    console.log(
-      'QUERY:',
-      query,
-    );
-
-    console.log(
-      '================================',
-    );
-
-    // Mercado Pago puede enviar el ID
-    // en body.data.id o mediante query params.
-
-    const idMercadoPago =
-      Number(
-        body?.data?.id ??
-        body?.id ??
-        query?.['data.id'] ??
-        query?.id,
-      );
-
-    console.log(
-      'ID MERCADO PAGO DETECTADO:',
-      idMercadoPago,
-    );
-
-    // ==========================================================
-    // VALIDAR ID
-    // ==========================================================
-
-    if (
-      !Number.isInteger(idMercadoPago) ||
-      idMercadoPago <= 0
-    ) {
-      console.warn(
-        'WEBHOOK SIN ID DE PAGO VÁLIDO',
-      );
-
-      return {
-        received: true,
-        procesado: false,
-      };
+    const id = Number(rawId);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      // Respondemos 200 para no provocar reintentos infinitos por una
+      // notificación que no corresponde a un pago.
+      return { received: true, procesado: false, mensaje: 'ID inválido.' };
     }
 
-    // ==========================================================
-    // PROCESAR PAGO
-    // ==========================================================
-
-    const resultado =
-      await this.pagosService.procesarWebhookMercadoPago(
-        idMercadoPago,
-      );
-
-    return {
-      received: true,
-      ...resultado,
-    };
+    const resultado = await this.pagosService.procesarWebhookMercadoPago(id);
+    return { received: true, ...resultado };
   }
 }

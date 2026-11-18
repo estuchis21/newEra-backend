@@ -1,14 +1,11 @@
-
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-
 import { PagosRepository } from './pagos.repository/pagos.repository';
-
 import { LiquidacionProfesorService } from '../liquidacion-profesor/liquidacion-profesor.service';
-
 import { MercadopagoService } from '../integrations/mercadopago/mercadopago.service';
 
 @Injectable()
@@ -19,388 +16,137 @@ export class PagosService {
     private readonly mercadopagoService: MercadopagoService,
   ) {}
 
-  // ============================================================
-  // CREAR PAGO
-  // ============================================================
-
   async crearPago(idCuota: number) {
-    try {
-      console.log('================================');
-      console.log('INICIANDO PAGO');
-      console.log('CUOTA:', idCuota);
-      console.log('================================');
+    if (!Number.isSafeInteger(idCuota) || idCuota <= 0) {
+      throw new BadRequestException('ID de cuota inválido.');
+    }
 
-      // --------------------------------------------------------
-      // VALIDAR ID
-      // --------------------------------------------------------
+    const cuota = await this.pagosRepository.obtenerCuota(idCuota);
+    if (!cuota) throw new NotFoundException('La cuota no existe.');
 
-      if (!Number.isInteger(idCuota) || idCuota <= 0) {
-        throw new NotFoundException('ID de cuota inválido');
-      }
+    if (String(cuota.estado).toLowerCase() === 'pagado') {
+      throw new BadRequestException('La cuota ya está pagada.');
+    }
 
-      // --------------------------------------------------------
-      // OBTENER CUOTA
-      // --------------------------------------------------------
+    const monto = Number(cuota.monto);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      throw new InternalServerErrorException('La cuota tiene un importe inválido.');
+    }
+    if (!cuota.email) {
+      throw new BadRequestException('El alumno no tiene email registrado.');
+    }
 
-      const cuota = await this.pagosRepository.obtenerCuota(idCuota);
+    const nombre = `${cuota.nombre ?? ''} ${cuota.apellido ?? ''}`.trim();
+    const descripcion = `Pago de cuota #${idCuota}`;
 
-      if (!cuota) {
-        throw new NotFoundException('La cuota no existe');
-      }
+    const preference = await this.mercadopagoService.crearPreferencia(
+      idCuota, monto, nombre, cuota.email.trim(), descripcion,
+    );
 
-      // --------------------------------------------------------
-      // VALIDACIONES
-      // --------------------------------------------------------
-
-      const monto = Number(cuota.monto);
-
-      if (!Number.isFinite(monto) || monto <= 0) {
-        throw new InternalServerErrorException(
-          'La cuota no tiene un monto válido',
-        );
-      }
-
-      if (!cuota.email) {
-        throw new InternalServerErrorException(
-          'El alumno no tiene email registrado',
-        );
-      }
-
-      // --------------------------------------------------------
-      // DATOS DEL ALUMNO
-      // --------------------------------------------------------
-
-      const nombre = `${cuota.nombre ?? ''} ${cuota.apellido ?? ''}`.trim();
-
-      const email = String(cuota.email).trim();
-
-      const creditos = Number(cuota.paquete_creditos ?? 0);
-
-      const descripcionItem = cuota.paquete_nombre
-        ? `${cuota.paquete_nombre} - ${creditos} créditos`
-        : `Pago de cuota #${idCuota}`;
-
-      console.log('================================');
-      console.log('DATOS DEL PAGO');
-      console.log('CUOTA:', idCuota);
-      console.log('ALUMNO:', nombre);
-      console.log('EMAIL:', email);
-      console.log('MONTO:', monto);
-      console.log('DESCRIPCIÓN:', descripcionItem);
-      console.log('================================');
-
-      // --------------------------------------------------------
-      // CREAR PREFERENCIA MERCADO PAGO
-      // --------------------------------------------------------
-
-      const preference =
-        await this.mercadopagoService.crearPreferencia(
-          idCuota,
-          monto,
-          nombre,
-          email,
-          descripcionItem,
-        );
-
-      if (!preference?.id || !preference?.init_point) {
-        throw new InternalServerErrorException(
-          'Mercado Pago no devolvió una preferencia válida',
-        );
-      }
-
-      // --------------------------------------------------------
-      // RESPUESTA
-      // --------------------------------------------------------
-
-      return {
-        success: true,
-        idCuota,
-        monto,
-        descripcion: descripcionItem,
-        preferenceId: preference.id,
-        init_point: preference.init_point,
-      };
-    } catch (error) {
-      console.error('================================');
-      console.error('ERROR CREANDO PAGO');
-      console.error(error);
-      console.error('================================');
-
-      if (
-        error instanceof NotFoundException ||
-        error instanceof InternalServerErrorException
-      ) {
-        throw error;
-      }
-
+    if (!preference?.id || !preference?.init_point) {
       throw new InternalServerErrorException(
-        'No se pudo crear el pago',
+        'Mercado Pago no devolvió una preferencia válida.',
       );
     }
+
+    return {
+      success: true,
+      idCuota,
+      monto,
+      preferenceId: preference.id,
+      init_point: preference.init_point,
+    };
   }
 
-  // ============================================================
-  // PROCESAR WEBHOOK MERCADO PAGO
-  // ============================================================
-
   async procesarWebhookMercadoPago(idMercadoPago: number) {
-    try {
-      console.log('================================');
-      console.log('PROCESANDO WEBHOOK MERCADO PAGO');
-      console.log('ID MERCADO PAGO:', idMercadoPago);
-      console.log('================================');
+    if (!Number.isSafeInteger(idMercadoPago) || idMercadoPago <= 0) {
+      return { success: false, procesado: false, mensaje: 'ID de pago inválido.' };
+    }
 
-      // --------------------------------------------------------
-      // VALIDAR ID
-      // --------------------------------------------------------
+    const mp = await this.mercadopagoService.obtenerPago(idMercadoPago);
+    if (!mp) {
+      return { success: false, procesado: false, mensaje: 'Pago inexistente en Mercado Pago.' };
+    }
 
-      if (
-        !Number.isSafeInteger(idMercadoPago) ||
-        idMercadoPago <= 0
-      ) {
-        return {
-          success: false,
-          procesado: false,
-          mensaje: 'ID de Mercado Pago inválido',
-        };
-      }
-
-      // --------------------------------------------------------
-      // OBTENER PAGO REAL DESDE MERCADO PAGO
-      // --------------------------------------------------------
-
-      const pagoMercadoPago =
-        await this.mercadopagoService.obtenerPago(idMercadoPago);
-
-      if (!pagoMercadoPago) {
-        return {
-          success: false,
-          procesado: false,
-          mensaje: 'No se encontró el pago en Mercado Pago',
-        };
-      }
-
-      console.log('PAGO MERCADO PAGO:', pagoMercadoPago);
-
-      // --------------------------------------------------------
-      // VERIFICAR ESTADO
-      // --------------------------------------------------------
-
-      const estado = String(
-        pagoMercadoPago.status ?? '',
-      ).toLowerCase();
-
-      console.log('ESTADO DEL PAGO:', estado);
-
-      if (estado !== 'approved') {
-        return {
-          success: true,
-          procesado: false,
-          estado,
-          mensaje: 'El pago todavía no está aprobado',
-        };
-      }
-
-      // --------------------------------------------------------
-      // VERIFICAR EXTERNAL REFERENCE
-      // --------------------------------------------------------
-
-      const externalReference = String(
-        pagoMercadoPago.external_reference ?? '',
-      );
-
-      console.log('EXTERNAL REFERENCE:', externalReference);
-
-      if (!externalReference.startsWith('cuota-')) {
-        return {
-          success: false,
-          procesado: false,
-          mensaje: 'El pago no contiene una cuota válida',
-        };
-      }
-
-      const idCuota = Number(
-        externalReference.replace('cuota-', ''),
-      );
-
-      if (!Number.isInteger(idCuota) || idCuota <= 0) {
-        return {
-          success: false,
-          procesado: false,
-          mensaje: 'ID de cuota inválido',
-        };
-      }
-
-      // --------------------------------------------------------
-      // VERIFICAR DUPLICADO
-      // --------------------------------------------------------
-
-      const yaExiste =
-        await this.pagosRepository.existePagoMercadoPago(
-          idMercadoPago,
-        );
-
-      if (yaExiste) {
-        console.log('EL PAGO YA ESTÁ REGISTRADO');
-
-        // Reintentar generación por si una ejecución anterior
-        // registró el pago pero falló antes de generar liquidaciones.
-        const liquidaciones =
-          await this.liquidacionProfesorService.generarPorCuota(
-            idCuota,
-          );
-
-        return {
-          success: true,
-          procesado: false,
-          duplicado: true,
-          idCuota,
-          liquidaciones,
-          mensaje: 'El pago ya estaba registrado',
-        };
-      }
-
-      // --------------------------------------------------------
-      // VALIDAR MONTO
-      // --------------------------------------------------------
-
-      const monto = Number(
-        pagoMercadoPago.transaction_amount ?? 0,
-      );
-
-      if (!Number.isFinite(monto) || monto <= 0) {
-        return {
-          success: false,
-          procesado: false,
-          mensaje: 'Monto del pago inválido',
-        };
-      }
-
-      // --------------------------------------------------------
-      // VALIDAR CUOTA
-      // --------------------------------------------------------
-
-      const cuota =
-        await this.pagosRepository.obtenerCuota(idCuota);
-
-      if (!cuota) {
-        return {
-          success: false,
-          procesado: false,
-          mensaje: 'No se encontró la cuota asociada al pago',
-        };
-      }
-
-      // --------------------------------------------------------
-      // VALIDAR IMPORTE
-      // --------------------------------------------------------
-
-      const montoCuota = Number(cuota.monto);
-
-      if (!Number.isFinite(montoCuota) || montoCuota <= 0) {
-        return {
-          success: false,
-          procesado: false,
-          mensaje: 'La cuota tiene un importe inválido',
-        };
-      }
-
-      if (monto > montoCuota) {
-        console.warn(
-          'EL MONTO DEL PAGO SUPERA EL MONTO DE LA CUOTA',
-          { monto, montoCuota, idCuota },
-        );
-      }
-
-      // --------------------------------------------------------
-      // MÉTODO DE PAGO
-      // --------------------------------------------------------
-
-      const metodoPago = String(
-        pagoMercadoPago.payment_method_id ??
-          pagoMercadoPago.payment_type_id ??
-          'Mercado Pago',
-      );
-
-      // --------------------------------------------------------
-      // REGISTRAR PAGO Y ACTUALIZAR CUOTA
-      // --------------------------------------------------------
-
-      console.log('================================');
-      console.log('REGISTRANDO PAGO');
-      console.log('CUOTA:', idCuota);
-      console.log('MONTO:', monto);
-      console.log('MERCADO PAGO:', idMercadoPago);
-      console.log('MÉTODO:', metodoPago);
-      console.log('================================');
-
-      const pago = await this.pagosRepository.registrarPago(
-        idCuota,
-        monto,
-        metodoPago,
-        idMercadoPago,
-      );
-
-      console.log('PAGO REGISTRADO:', pago);
-
-      // --------------------------------------------------------
-      // GENERAR LIQUIDACIONES
-      // --------------------------------------------------------
-
-      let resultadoLiquidaciones: any = null;
-
-      if (
-        String(pago.estado_cuota ?? '').toLowerCase() === 'pagado'
-      ) {
-        console.log('================================');
-        console.log('CUOTA COMPLETAMENTE PAGADA');
-        console.log('GENERANDO LIQUIDACIONES');
-        console.log('DISTRIBUCIÓN: 30% PROFESOR / 70% ACADEMIA');
-        console.log('================================');
-
-        resultadoLiquidaciones =
-          await this.liquidacionProfesorService.generarPorCuota(
-            idCuota,
-          );
-
-        console.log(
-          'RESULTADO DE LIQUIDACIONES:',
-          resultadoLiquidaciones,
-        );
-      } else {
-        console.log(
-          'LA CUOTA TODAVÍA TIENE SALDO PENDIENTE.',
-        );
-      }
-
-      // --------------------------------------------------------
-      // RESPUESTA
-      // --------------------------------------------------------
-
-      console.log('================================');
-      console.log('WEBHOOK PROCESADO CORRECTAMENTE');
-      console.log('CUOTA:', idCuota);
-      console.log('PAGO:', idMercadoPago);
-      console.log('MONTO:', monto);
-      console.log('================================');
-
+    if (String(mp.status ?? '').toLowerCase() !== 'approved') {
       return {
         success: true,
-        procesado: true,
-        idCuota,
-        idMercadoPago,
-        monto,
-        metodoPago,
-        pago,
-        liquidaciones: resultadoLiquidaciones,
+        procesado: false,
+        estado: mp.status ?? 'desconocido',
+        mensaje: 'El pago todavía no está aprobado.',
       };
-    } catch (error) {
-      console.error('================================');
-      console.error('ERROR PROCESANDO WEBHOOK');
-      console.error(error);
-      console.error('================================');
-
-      throw error;
     }
+
+    const externalReference = String(mp.external_reference ?? '');
+    const match = /^cuota-(\d+)$/.exec(externalReference);
+    if (!match) {
+      return { success: false, procesado: false, mensaje: 'Referencia de cuota inválida.' };
+    }
+
+    const idCuota = Number(match[1]);
+    const cuota = await this.pagosRepository.obtenerCuota(idCuota);
+    if (!cuota) {
+      return { success: false, procesado: false, mensaje: 'No existe la cuota indicada.' };
+    }
+
+    const yaExiste = await this.pagosRepository.existePagoMercadoPago(idMercadoPago);
+    if (yaExiste) {
+      const liquidaciones = await this.liquidacionProfesorService.generarPorCuota(idCuota);
+      return {
+        success: true, procesado: false, duplicado: true, idCuota,
+        liquidaciones, mensaje: 'El pago ya estaba registrado.',
+      };
+    }
+
+    const monto = Number(mp.transaction_amount);
+    const montoCuota = Number(cuota.monto);
+    if (!Number.isFinite(monto) || monto <= 0 ||
+        !Number.isFinite(montoCuota) || montoCuota <= 0) {
+      return { success: false, procesado: false, mensaje: 'Importe inválido.' };
+    }
+
+    // Esta integración crea preferencias por el total de la cuota.
+    // Rechazamos importes parciales o superiores para evitar saldos ambiguos.
+    if (Math.abs(monto - montoCuota) > 0.01) {
+      return {
+        success: false,
+        procesado: false,
+        mensaje: `El importe aprobado (${monto}) no coincide con la cuota (${montoCuota}).`,
+      };
+    }
+
+    if (mp.currency_id && mp.currency_id !== 'ARS') {
+      return { success: false, procesado: false, mensaje: 'La moneda del pago no es ARS.' };
+    }
+
+    const metodoPago = String(
+      mp.payment_method_id ?? mp.payment_type_id ?? 'Mercado Pago',
+    );
+    const detalle = [
+      `status=${mp.status}`,
+      `currency=${mp.currency_id ?? 'no_informada'}`,
+      `collector_id=${mp.collector_id ?? 'no_informado'}`,
+      `payment_type=${mp.payment_type_id ?? 'no_informado'}`,
+    ].join('; ');
+
+    const pago = await this.pagosRepository.registrarPago(
+      idCuota, monto, metodoPago, idMercadoPago, detalle,
+    );
+
+    const liquidaciones =
+      String(pago.estado_cuota).toLowerCase() === 'pagado'
+        ? await this.liquidacionProfesorService.generarPorCuota(idCuota)
+        : null;
+
+    return {
+      success: true,
+      procesado: true,
+      idCuota,
+      idMercadoPago,
+      monto,
+      metodoPago,
+      pago,
+      liquidaciones,
+    };
   }
 }

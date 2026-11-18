@@ -1,137 +1,117 @@
 import {
-  Injectable,
   BadRequestException,
+  Injectable,
   NotFoundException,
 } from '@nestjs/common';
-
 import { LiquidacionProfesorRepository } from './liquidacion-profesor.repository';
+
+export interface RegistrarTransferenciaDto {
+  monto_transferido: number;
+  fecha_transferencia: string;
+  id_operacion_transferencia: string;
+  observaciones_transferencia?: string;
+}
 
 @Injectable()
 export class LiquidacionProfesorService {
   constructor(
-    private readonly liquidacionRepository: LiquidacionProfesorRepository,
+    private readonly repository: LiquidacionProfesorRepository,
   ) {}
-
-  // =====================================================
-  // GENERAR LIQUIDACIONES DE UNA CUOTA
-  // =====================================================
 
   async generarPorCuota(idCuota: number) {
     this.validarId(idCuota, 'cuota');
-
-    return this.liquidacionRepository.generarPorCuota(idCuota);
+    return this.repository.generarPorCuota(idCuota);
   }
-
-  // =====================================================
-  // OBTENER TODAS
-  // =====================================================
 
   async obtenerTodas() {
-    return this.liquidacionRepository.obtenerTodas();
+    return this.repository.obtenerTodas();
   }
-
-  // =====================================================
-  // OBTENER POR PROFESOR
-  // =====================================================
 
   async obtenerPorProfesor(idProfesor: number) {
     this.validarId(idProfesor, 'profesor');
-
-    return this.liquidacionRepository.obtenerPorProfesor(idProfesor);
+    return this.repository.obtenerPorProfesor(idProfesor);
   }
-
-  // =====================================================
-  // OBTENER POR CUOTA
-  // =====================================================
 
   async obtenerPorCuota(idCuota: number) {
     this.validarId(idCuota, 'cuota');
-
-    return this.liquidacionRepository.obtenerPorCuota(idCuota);
+    return this.repository.obtenerPorCuota(idCuota);
   }
-
-  // =====================================================
-  // OBTENER POR ID
-  // =====================================================
 
   async obtenerPorId(idLiquidacion: number) {
     this.validarId(idLiquidacion, 'liquidación');
+    const item = await this.repository.obtenerPorId(idLiquidacion);
+    if (!item) throw new NotFoundException(`No existe la liquidación ${idLiquidacion}.`);
+    return item;
+  }
 
-    const liquidacion =
-      await this.liquidacionRepository.obtenerPorId(idLiquidacion);
+  async marcarPagada(
+    idLiquidacion: number,
+    dto: RegistrarTransferenciaDto,
+  ) {
+    this.validarId(idLiquidacion, 'liquidación');
 
-    if (!liquidacion) {
-      throw new NotFoundException(
-        `No se encontró la liquidación ${idLiquidacion}.`,
+    const monto = Number(dto?.monto_transferido);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      throw new BadRequestException('El monto transferido debe ser mayor que cero.');
+    }
+
+    const fecha = new Date(dto?.fecha_transferencia);
+    if (!dto?.fecha_transferencia || Number.isNaN(fecha.getTime())) {
+      throw new BadRequestException('La fecha de transferencia no es válida.');
+    }
+
+    const operacion = String(dto?.id_operacion_transferencia ?? '').trim();
+    if (!operacion) {
+      throw new BadRequestException('El ID o número de operación es obligatorio.');
+    }
+
+    const liquidacion = await this.repository.obtenerPorId(idLiquidacion);
+    if (!liquidacion) throw new NotFoundException('La liquidación no existe.');
+    if (String(liquidacion.estado).toLowerCase() !== 'pendiente') {
+      throw new BadRequestException('Solo se pueden pagar liquidaciones pendientes.');
+    }
+
+    const esperado = Number(liquidacion.monto_profesor);
+    if (Math.abs(monto - esperado) > 0.01) {
+      throw new BadRequestException(
+        `El monto transferido debe coincidir con el importe a liquidar (${esperado}).`,
       );
     }
 
-    return liquidacion;
-  }
+    const actualizada = await this.repository.marcarPagada(idLiquidacion, {
+      monto,
+      fecha,
+      operacion,
+      observaciones: dto.observaciones_transferencia?.trim() || null,
+    });
 
-  // =====================================================
-  // MARCAR COMO PAGADA
-  // =====================================================
-
-  async marcarPagada(idLiquidacion: number) {
-    this.validarId(idLiquidacion, 'liquidación');
-
-    const liquidacion =
-      await this.liquidacionRepository.marcarPagada(idLiquidacion);
-
-    if (!liquidacion) {
-      throw new BadRequestException(
-        'No se pudo marcar la liquidación como pagada. Verificá que exista y que esté pendiente.',
-      );
+    if (!actualizada) {
+      throw new BadRequestException('No se pudo registrar la transferencia.');
     }
 
     return {
       success: true,
-      mensaje: 'Liquidación marcada como pagada correctamente.',
-      liquidacion,
+      mensaje: 'Transferencia registrada y liquidación marcada como pagada.',
+      liquidacion: actualizada,
     };
   }
-
-  // =====================================================
-  // ANULAR
-  // =====================================================
 
   async anular(idLiquidacion: number) {
     this.validarId(idLiquidacion, 'liquidación');
-
-    const liquidacion =
-      await this.liquidacionRepository.anular(idLiquidacion);
-
-    if (!liquidacion) {
-      throw new BadRequestException(
-        'No se pudo anular la liquidación. Verificá que exista y que esté pendiente.',
-      );
+    const item = await this.repository.anular(idLiquidacion);
+    if (!item) {
+      throw new BadRequestException('No se pudo anular: verificá que exista y esté pendiente.');
     }
-
-    return {
-      success: true,
-      mensaje: 'Liquidación anulada correctamente.',
-      liquidacion,
-    };
+    return { success: true, mensaje: 'Liquidación anulada.', liquidacion: item };
   }
-
-  // =====================================================
-  // RESUMEN
-  // =====================================================
 
   async obtenerResumen() {
-    return this.liquidacionRepository.obtenerResumen();
+    return this.repository.obtenerResumen();
   }
 
-  // =====================================================
-  // VALIDACIONES
-  // =====================================================
-
-  private validarId(id: number, entidad: string): void {
-    if (!Number.isInteger(id) || id <= 0) {
-      throw new BadRequestException(
-        `El identificador de ${entidad} no es válido.`,
-      );
+  private validarId(id: number, entidad: string) {
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new BadRequestException(`El identificador de ${entidad} no es válido.`);
     }
   }
 }
