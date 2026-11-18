@@ -40,6 +40,7 @@ export class PagosRepository {
     return result.rows[0]?.existe === true;
   }
 
+  
   async registrarPago(
     idCuota: number,
     monto: number,
@@ -47,31 +48,40 @@ export class PagosRepository {
     idMercadoPago: number | string,
     detalle: string | null,
   ) {
-    // ON CONFLICT + índice único de id_mercado_pago hacen idempotente
-    // el registro ante notificaciones repetidas o concurrentes.
     const result = await this.databaseService.query(
       `
-      WITH nuevo_pago AS (
+      WITH pago_insertado AS (
         INSERT INTO public.pago (
-          id_cuota, monto, fecha_pago, estado,
-          id_mercado_pago, metodo_pago, detalle
+          id_cuota,
+          monto,
+          fecha_pago,
+          estado,
+          id_mercado_pago,
+          metodo_pago,
+          detalle
         )
-        VALUES ($1, $2, CURRENT_TIMESTAMP, 'Aprobado',
-                $3::bigint, $4, $5)
+        VALUES (
+          $1,
+          $2,
+          CURRENT_TIMESTAMP,
+          'Aprobado',
+          $3::bigint,
+          $4,
+          $5
+        )
         ON CONFLICT (id_mercado_pago)
           WHERE id_mercado_pago IS NOT NULL
         DO NOTHING
-        RETURNING id_pago, id_cuota, monto
+        RETURNING id_pago, id_cuota
       ),
       pago_existente AS (
-        SELECT id_pago, id_cuota, monto
-        FROM public.pago
-        WHERE id_mercado_pago = $3::bigint
-          AND NOT EXISTS (SELECT 1 FROM nuevo_pago)
-        LIMIT 1
+        SELECT p.id_pago, p.id_cuota
+        FROM public.pago p
+        WHERE p.id_mercado_pago = $3::bigint
+          AND NOT EXISTS (SELECT 1 FROM pago_insertado)
       ),
       pago_final AS (
-        SELECT * FROM nuevo_pago
+        SELECT * FROM pago_insertado
         UNION ALL
         SELECT * FROM pago_existente
       ),
@@ -82,26 +92,37 @@ export class PagosRepository {
             SELECT COALESCE(SUM(p.monto), 0)
             FROM public.pago p
             WHERE p.id_cuota = c.id_cuota
-              AND LOWER(TRIM(COALESCE(p.estado, ''))) IN ('aprobado', 'approved')
-          ) >= c.monto THEN 'Pagado'
+              AND LOWER(TRIM(COALESCE(p.estado, '')))
+                  IN ('aprobado', 'approved')
+          ) >= c.monto
+          THEN 'Pagado'
           ELSE 'Pendiente'
         END
-        FROM pago_final pf
-        WHERE c.id_cuota = pf.id_cuota
+        WHERE c.id_cuota = $1
+          AND EXISTS (
+            SELECT 1 FROM pago_final pf
+            WHERE pf.id_cuota = c.id_cuota
+          )
         RETURNING c.id_cuota, c.estado
       )
-      SELECT pf.id_pago, pf.id_cuota, ca.estado AS estado_cuota
+      SELECT
+        pf.id_pago,
+        pf.id_cuota,
+        ca.estado AS estado_cuota
       FROM pago_final pf
-      INNER JOIN cuota_actualizada ca ON ca.id_cuota = pf.id_cuota
+      INNER JOIN cuota_actualizada ca
+        ON ca.id_cuota = pf.id_cuota
       `,
       [idCuota, monto, String(idMercadoPago), metodoPago, detalle],
     );
 
     if (!result.rows.length) {
       throw new NotFoundException(
-        `No se pudo registrar el pago de la cuota ${idCuota}.`,
+        `No se pudo registrar o recuperar el pago de la cuota ${idCuota}.`,
       );
     }
+
     return result.rows[0];
   }
+
 }
