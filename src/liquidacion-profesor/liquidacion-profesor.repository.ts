@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { RegistrarCuentaCobroDto } from './dto/registrar-cuenta-cobro.dto';
+import { RegistrarTransferenciaDto } from './dto/liquidacion-profesor.dto';
+
 
 interface Transferencia {
   monto: number;
@@ -126,6 +129,105 @@ export class LiquidacionProfesorRepository {
     return result.rows;
   }
 
+
+async obtenerCuentaActivaPorProfesor(idProfesor: number) {
+  const sql = `
+    SELECT *
+    FROM cuentas_cobro_profesor
+    WHERE id_profesor = $1
+      AND activa = TRUE
+    LIMIT 1;
+  `;
+
+  const result = await this.databaseService.query(sql, [idProfesor]);
+  return result.rows?.[0] ?? result[0] ?? null;
+}
+
+
+async guardarCuentaCobro(
+  idProfesor: number,
+  dto: RegistrarCuentaCobroDto,
+) {
+  const sql = `
+    WITH cuenta_desactivada AS (
+      UPDATE cuentas_cobro_profesor
+      SET
+        activa = FALSE,
+        fecha_actualizacion = CURRENT_TIMESTAMP
+      WHERE id_profesor = $1
+        AND activa = TRUE
+    )
+    INSERT INTO cuentas_cobro_profesor (
+      id_profesor,
+      alias,
+      cbu_cvu,
+      titular,
+      cuit_cuil,
+      tipo_cuenta,
+      activa
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+    RETURNING *;
+  `;
+
+  const result = await this.databaseService.query(sql, [
+    idProfesor,
+    dto.alias?.trim() || null,
+    dto.cbu_cvu?.trim() || null,
+    dto.titular.trim(),
+    dto.cuit_cuil?.trim() || null,
+    dto.tipo_cuenta,
+  ]);
+
+  return result.rows?.[0] ?? result[0] ?? null;
+}
+
+  async obtenerCuentaCobro(idProfesor: number) {
+    const sql = `
+      SELECT
+        id_cuenta,
+        id_profesor,
+        alias,
+        cbu_cvu,
+        titular,
+        tipo_cuenta,
+        activa,
+        fecha_creacion,
+        fecha_actualizacion
+      FROM cuentas_cobro_profesor
+      WHERE id_profesor = $1
+        AND activa = TRUE
+      LIMIT 1;
+    `;
+
+    const result = await this.databaseService.query(sql, [idProfesor]);
+    return result.rows?.[0] ?? result[0] ?? null;
+  }
+
+
+  async obtenerHistorialTransferencias(idLiquidacion: number) {
+    const sql = `
+      SELECT
+        t.*,
+        c.alias,
+        c.cbu_cvu,
+        c.titular,
+        c.tipo_cuenta
+      FROM transferencias_profesores t
+      LEFT JOIN cuentas_cobro_profesor c
+        ON c.id_cuenta = t.id_cuenta
+      WHERE t.id_liquidacion = $1
+      ORDER BY t.fecha_registro DESC;
+    `;
+
+    const result = await this.databaseService.query(sql, [
+      idLiquidacion,
+    ]);
+
+    return result.rows ?? result;
+  }
+
+
   async obtenerPorCuota(idCuota: number) {
     const result = await this.databaseService.query(
       `
@@ -161,22 +263,88 @@ export class LiquidacionProfesorRepository {
     return result.rows[0] ?? null;
   }
 
-  async marcarPagada(idLiquidacion: number, t: Transferencia) {
-    const result = await this.databaseService.query(
-      `
-      UPDATE public.liquidacion_profesor
-      SET estado = 'Pagado',
+
+  async marcarPagada(
+    idLiquidacion: number,
+    dto: RegistrarTransferenciaDto,
+  ) {
+    const sql = `
+      WITH liquidacion_actualizada AS (
+        UPDATE liquidacion_profesor lp
+        SET
+          estado = 'Pagado',
           monto_transferido = $2,
-          fecha_transferencia = $3,
+          fecha_transferencia = $3::timestamp,
           id_operacion_transferencia = $4,
           observaciones_transferencia = $5
-      WHERE id_liquidacion = $1
-        AND estado = 'Pendiente'
-      RETURNING *
-      `,
-      [idLiquidacion, t.monto, t.fecha, t.operacion, t.observaciones],
-    );
-    return result.rows[0] ?? null;
+        WHERE lp.id_liquidacion = $1
+          AND lp.estado = 'Pendiente'
+          AND ROUND(lp.monto_profesor, 2) = ROUND($2::numeric, 2)
+          AND (
+            $6::integer IS NULL
+            OR EXISTS (
+              SELECT 1
+              FROM cuentas_cobro_profesor c
+              WHERE c.id_cuenta = $6
+                AND c.id_profesor = lp.id_profesor
+                AND c.activa = TRUE
+            )
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM transferencias_profesores t
+            WHERE t.id_liquidacion = lp.id_liquidacion
+              AND t.estado = 'Registrada'
+          )
+        RETURNING
+          lp.id_liquidacion,
+          lp.id_profesor,
+          lp.monto_profesor,
+          lp.monto_transferido,
+          lp.fecha_transferencia,
+          lp.id_operacion_transferencia,
+          lp.observaciones_transferencia,
+          lp.estado
+      ),
+      transferencia_insertada AS (
+        INSERT INTO transferencias_profesores (
+          id_liquidacion,
+          id_cuenta,
+          monto,
+          fecha_transferencia,
+          id_operacion_transferencia,
+          observaciones
+        )
+        SELECT
+          l.id_liquidacion,
+          $6,
+          l.monto_transferido,
+          l.fecha_transferencia,
+          l.id_operacion_transferencia,
+          l.observaciones_transferencia
+        FROM liquidacion_actualizada l
+        RETURNING *
+      )
+      SELECT
+        l.*,
+        t.id_transferencia,
+        t.id_cuenta,
+        t.fecha_registro
+      FROM liquidacion_actualizada l
+      JOIN transferencia_insertada t
+        ON t.id_liquidacion = l.id_liquidacion;
+    `;
+
+    const result = await this.databaseService.query(sql, [
+      idLiquidacion,
+      dto.monto_transferido,
+      dto.fecha_transferencia,
+      dto.id_operacion_transferencia ?? null,
+      dto.observaciones_transferencia ?? null,
+      dto.id_cuenta ?? null,
+    ]);
+
+    return result.rows?.[0] ?? result[0] ?? null;
   }
 
   async anular(idLiquidacion: number) {
