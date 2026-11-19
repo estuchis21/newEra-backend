@@ -9,19 +9,23 @@ import {
   Min,
 } from 'class-validator';
 
-import { Type } from 'class-transformer';
-
 export class RegistrarTransferenciaDto {
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.01)
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'El monto debe ser numérico y tener hasta dos decimales.' },
+  )
+  @Min(0.01, {
+    message: 'El monto transferido debe ser mayor que cero.',
+  })
   monto_transferido!: number;
 
-  @IsDateString()
+  @IsDateString(
+    {},
+    { message: 'La fecha de transferencia no es válida.' },
+  )
   fecha_transferencia!: string;
 
   @IsOptional()
-  @Type(() => Number)
   @IsInt()
   @Min(1)
   id_cuenta?: number;
@@ -33,6 +37,6 @@ export class RegistrarTransferenciaDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(500)
   observaciones_transferencia?: string;
 }

@@ -1,20 +1,24 @@
+
 import {
   IsIn,
   IsOptional,
   IsString,
   MaxLength,
   Matches,
+  ValidateIf,
 } from 'class-validator';
 
 export class RegistrarCuentaCobroDto {
-  @IsOptional()
+  @ValidateIf((o) => !o.cbu_cvu)
   @IsString()
   @MaxLength(100)
   alias?: string;
 
-  @IsOptional()
+  @ValidateIf((o) => !o.alias)
   @IsString()
-  @Matches(/^[0-9]{22}$/)
+  @Matches(/^[0-9]{22}$/, {
+    message: 'El CBU/CVU debe contener exactamente 22 dígitos.',
+  })
   cbu_cvu?: string;
 
   @IsString()

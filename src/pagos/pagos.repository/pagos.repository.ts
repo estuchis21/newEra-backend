@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
 import { DatabaseService } from '../../database/database.service';
 
 export interface CuotaParaPago {
@@ -12,35 +17,53 @@ export interface CuotaParaPago {
 
 @Injectable()
 export class PagosRepository {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+  ) {}
 
-  async obtenerCuota(idCuota: number): Promise<CuotaParaPago | null> {
+  async obtenerCuota(
+    idCuota: number,
+  ): Promise<CuotaParaPago | null> {
     const result = await this.databaseService.query(
       `
-      SELECT c.id_cuota, c.monto, c.estado,
-             u.email, u.nombre, u.apellido
+      SELECT
+        c.id_cuota,
+        c.monto,
+        c.estado,
+        u.email,
+        u.nombre,
+        u.apellido
       FROM public.cuota c
-      INNER JOIN public.alumnos a ON a.id_alumno = c.id_alumno
-      INNER JOIN public.users u ON u.id_usuario = a.id_usuario
+      INNER JOIN public.alumnos a
+        ON a.id_alumno = c.id_alumno
+      INNER JOIN public.users u
+        ON u.id_usuario = a.id_usuario
       WHERE c.id_cuota = $1
-      LIMIT 1
+      LIMIT 1;
       `,
       [idCuota],
     );
+
     return result.rows[0] ?? null;
   }
 
-  async existePagoMercadoPago(idMercadoPago: number | string): Promise<boolean> {
+  async existePagoMercadoPago(
+    idMercadoPago: number | string,
+  ): Promise<boolean> {
     const result = await this.databaseService.query(
-      `SELECT EXISTS (
-         SELECT 1 FROM public.pago WHERE id_mercado_pago = $1::bigint
-       ) AS existe`,
+      `
+      SELECT EXISTS (
+        SELECT 1
+        FROM public.pago
+        WHERE id_mercado_pago = $1::bigint
+      ) AS existe;
+      `,
       [String(idMercadoPago)],
     );
+
     return result.rows[0]?.existe === true;
   }
 
-  
   async registrarPago(
     idCuota: number,
     monto: number,
@@ -50,7 +73,7 @@ export class PagosRepository {
   ) {
     const result = await this.databaseService.query(
       `
-      WITH pago_insertado AS (
+      WITH nuevo_pago AS (
         INSERT INTO public.pago (
           id_cuota,
           monto,
@@ -72,19 +95,32 @@ export class PagosRepository {
         ON CONFLICT (id_mercado_pago)
           WHERE id_mercado_pago IS NOT NULL
         DO NOTHING
-        RETURNING id_pago, id_cuota
+        RETURNING
+          id_pago,
+          id_cuota,
+          monto
       ),
+
       pago_existente AS (
-        SELECT p.id_pago, p.id_cuota
+        SELECT
+          p.id_pago,
+          p.id_cuota,
+          p.monto
         FROM public.pago p
         WHERE p.id_mercado_pago = $3::bigint
-          AND NOT EXISTS (SELECT 1 FROM pago_insertado)
+          AND NOT EXISTS (
+            SELECT 1
+            FROM nuevo_pago
+          )
+        LIMIT 1
       ),
+
       pago_final AS (
-        SELECT * FROM pago_insertado
+        SELECT * FROM nuevo_pago
         UNION ALL
         SELECT * FROM pago_existente
       ),
+
       cuota_actualizada AS (
         UPDATE public.cuota c
         SET estado = CASE
@@ -92,37 +128,52 @@ export class PagosRepository {
             SELECT COALESCE(SUM(p.monto), 0)
             FROM public.pago p
             WHERE p.id_cuota = c.id_cuota
-              AND LOWER(TRIM(COALESCE(p.estado, '')))
-                  IN ('aprobado', 'approved')
+              AND LOWER(
+                TRIM(COALESCE(p.estado, ''))
+              ) IN ('aprobado', 'approved')
+          )
+          +
+          COALESCE(
+            (
+              SELECT SUM(np.monto)
+              FROM nuevo_pago np
+              WHERE np.id_cuota = c.id_cuota
+            ),
+            0
           ) >= c.monto
           THEN 'Pagado'
           ELSE 'Pendiente'
         END
-        WHERE c.id_cuota = $1
-          AND EXISTS (
-            SELECT 1 FROM pago_final pf
-            WHERE pf.id_cuota = c.id_cuota
-          )
-        RETURNING c.id_cuota, c.estado
+        FROM pago_final pf
+        WHERE c.id_cuota = pf.id_cuota
+        RETURNING
+          c.id_cuota,
+          c.estado
       )
+
       SELECT
         pf.id_pago,
         pf.id_cuota,
         ca.estado AS estado_cuota
       FROM pago_final pf
       INNER JOIN cuota_actualizada ca
-        ON ca.id_cuota = pf.id_cuota
+        ON ca.id_cuota = pf.id_cuota;
       `,
-      [idCuota, monto, String(idMercadoPago), metodoPago, detalle],
+      [
+        idCuota,
+        monto,
+        String(idMercadoPago),
+        metodoPago,
+        detalle,
+      ],
     );
 
     if (!result.rows.length) {
       throw new NotFoundException(
-        `No se pudo registrar o recuperar el pago de la cuota ${idCuota}.`,
+        `No se pudo registrar el pago de la cuota ${idCuota}.`,
       );
     }
 
     return result.rows[0];
   }
-
 }

@@ -18,19 +18,28 @@ export class PagosService {
     private readonly mercadopagoService: MercadopagoService,
   ) {}
 
+  // ============================================================
+  // CREAR PREFERENCIA DE PAGO
+  // ============================================================
+
   async crearPago(idCuota: number) {
     if (!Number.isSafeInteger(idCuota) || idCuota <= 0) {
       throw new BadRequestException('ID de cuota inválido.');
     }
 
-    const cuota = await this.pagosRepository.obtenerCuota(idCuota);
+    const cuota =
+      await this.pagosRepository.obtenerCuota(idCuota);
 
     if (!cuota) {
       throw new NotFoundException('La cuota no existe.');
     }
 
-    if (String(cuota.estado).trim().toLowerCase() === 'pagado') {
-      throw new BadRequestException('La cuota ya está pagada.');
+    if (
+      String(cuota.estado).trim().toLowerCase() === 'pagado'
+    ) {
+      throw new BadRequestException(
+        'La cuota ya está pagada.',
+      );
     }
 
     const monto = Number(cuota.monto);
@@ -47,16 +56,19 @@ export class PagosService {
       );
     }
 
-    const nombre = `${cuota.nombre ?? ''} ${cuota.apellido ?? ''}`.trim();
+    const nombre =
+      `${cuota.nombre ?? ''} ${cuota.apellido ?? ''}`.trim();
+
     const descripcion = `Pago de cuota #${idCuota}`;
 
-    const preference = await this.mercadopagoService.crearPreferencia(
-      idCuota,
-      monto,
-      nombre,
-      cuota.email.trim(),
-      descripcion,
-    );
+    const preference =
+      await this.mercadopagoService.crearPreferencia(
+        idCuota,
+        monto,
+        nombre,
+        cuota.email.trim(),
+        descripcion,
+      );
 
     if (!preference?.id || !preference?.init_point) {
       throw new InternalServerErrorException(
@@ -73,8 +85,13 @@ export class PagosService {
     };
   }
 
-  async procesarWebhookMercadoPago(idMercadoPago: number) {
-    // 1. Validar el identificador recibido.
+  // ============================================================
+  // PROCESAR NOTIFICACIÓN DE MERCADO PAGO
+  // ============================================================
+
+  async procesarWebhookMercadoPago(
+    idMercadoPago: number,
+  ) {
     if (
       !Number.isSafeInteger(idMercadoPago) ||
       idMercadoPago <= 0
@@ -86,8 +103,11 @@ export class PagosService {
       };
     }
 
-    // 2. Consultar el pago directamente en Mercado Pago.
-    const mp = await this.mercadopagoService.obtenerPago(idMercadoPago);
+    // Consultamos el pago directamente en Mercado Pago.
+    const mp =
+      await this.mercadopagoService.obtenerPago(
+        idMercadoPago,
+      );
 
     if (!mp) {
       return {
@@ -97,8 +117,9 @@ export class PagosService {
       };
     }
 
-    // 3. Procesar exclusivamente pagos aprobados.
-    if (String(mp.status ?? '').toLowerCase() !== 'approved') {
+    if (
+      String(mp.status ?? '').toLowerCase() !== 'approved'
+    ) {
       return {
         success: true,
         procesado: false,
@@ -107,8 +128,9 @@ export class PagosService {
       };
     }
 
-    // 4. Recuperar el ID de cuota desde external_reference.
-    const externalReference = String(mp.external_reference ?? '');
+    // Identificamos la cuota mediante external_reference.
+    const externalReference =
+      String(mp.external_reference ?? '');
 
     const match = /^cuota-(\d+)$/.exec(externalReference);
 
@@ -126,12 +148,12 @@ export class PagosService {
       return {
         success: false,
         procesado: false,
-        mensaje: 'ID de cuota inválido en la referencia de Mercado Pago.',
+        mensaje: 'Identificador de cuota inválido.',
       };
     }
 
-    // 5. Verificar que la cuota exista.
-    const cuota = await this.pagosRepository.obtenerCuota(idCuota);
+    const cuota =
+      await this.pagosRepository.obtenerCuota(idCuota);
 
     if (!cuota) {
       return {
@@ -141,7 +163,31 @@ export class PagosService {
       };
     }
 
-    // 6. Validar importes.
+    // Verificamos duplicados.
+    const yaExiste =
+      await this.pagosRepository.existePagoMercadoPago(
+        idMercadoPago,
+      );
+
+    if (yaExiste) {
+      const liquidaciones =
+        String(cuota.estado).trim().toLowerCase() === 'pagado'
+          ? await this.liquidacionProfesorService.generarPorCuota(
+              idCuota,
+            )
+          : null;
+
+      return {
+        success: true,
+        procesado: false,
+        duplicado: true,
+        idCuota,
+        liquidaciones,
+        mensaje: 'El pago ya estaba registrado.',
+      };
+    }
+
+    // Validamos el importe.
     const monto = Number(mp.transaction_amount);
     const montoCuota = Number(cuota.monto);
 
@@ -158,17 +204,17 @@ export class PagosService {
       };
     }
 
-    // Esta integración genera preferencias por el total de la cuota.
-    // No se aceptan pagos parciales ni superiores.
+    // Esta integración cobra el total de la cuota.
+    // No admite pagos parciales.
     if (Math.abs(monto - montoCuota) > 0.01) {
       return {
         success: false,
         procesado: false,
-        mensaje: `El importe aprobado (${monto}) no coincide con la cuota (${montoCuota}).`,
+        mensaje:
+          `El importe aprobado (${monto}) no coincide con la cuota (${montoCuota}).`,
       };
     }
 
-    // 7. Validar moneda.
     if (mp.currency_id && mp.currency_id !== 'ARS') {
       return {
         success: false,
@@ -177,11 +223,10 @@ export class PagosService {
       };
     }
 
-    // 8. Preparar información del pago.
     const metodoPago = String(
       mp.payment_method_id ??
-        mp.payment_type_id ??
-        'Mercado Pago',
+      mp.payment_type_id ??
+      'Mercado Pago',
     );
 
     const detalle = [
@@ -191,9 +236,7 @@ export class PagosService {
       `payment_type=${mp.payment_type_id ?? 'no_informado'}`,
     ].join('; ');
 
-    // 9. Registrar o recuperar el pago.
-    // El repositorio utiliza ON CONFLICT para evitar duplicados.
-    // También actualiza el estado de la cuota aunque el pago ya exista.
+    // Registramos el pago y actualizamos la cuota.
     const pago = await this.pagosRepository.registrarPago(
       idCuota,
       monto,
@@ -202,15 +245,14 @@ export class PagosService {
       detalle,
     );
 
-    // 10. Generar liquidaciones solamente cuando la cuota esté pagada.
-    const cuotaPagada =
-      String(pago.estado_cuota).trim().toLowerCase() === 'pagado';
+    // Solo generamos liquidaciones cuando la cuota está pagada.
+    const liquidaciones =
+      String(pago.estado_cuota).trim().toLowerCase() === 'pagado'
+        ? await this.liquidacionProfesorService.generarPorCuota(
+            idCuota,
+          )
+        : null;
 
-    const liquidaciones = cuotaPagada
-      ? await this.liquidacionProfesorService.generarPorCuota(idCuota)
-      : null;
-
-    // 11. Devolver el resultado.
     return {
       success: true,
       procesado: true,
@@ -220,9 +262,6 @@ export class PagosService {
       metodoPago,
       pago,
       liquidaciones,
-      mensaje: cuotaPagada
-        ? 'Pago registrado y cuota actualizada correctamente.'
-        : 'Pago registrado, pero todavía no se alcanzó el importe total de la cuota.',
     };
   }
 }

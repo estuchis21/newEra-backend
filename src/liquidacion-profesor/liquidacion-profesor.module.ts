@@ -6,7 +6,9 @@ import { LiquidacionProfesorService } from './liquidacion-profesor.service';
 import { LiquidacionProfesorRepository } from './liquidacion-profesor.repository';
 
 @Module({
-  controllers: [LiquidacionProfesorController],
+  controllers: [
+    LiquidacionProfesorController,
+  ],
   providers: [
     LiquidacionProfesorService,
     LiquidacionProfesorRepository,

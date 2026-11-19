@@ -10,7 +10,6 @@ import {
 } from '@nestjs/common';
 
 import { LiquidacionProfesorService } from './liquidacion-profesor.service';
-
 import { RegistrarTransferenciaDto } from './dto/liquidacion-profesor.dto';
 import { RegistrarCuentaCobroDto } from './dto/registrar-cuenta-cobro.dto';
 
@@ -20,39 +19,90 @@ export class LiquidacionProfesorController {
     private readonly service: LiquidacionProfesorService,
   ) {}
 
-  // Registrar una transferencia manual realizada por el administrador.
-  @Patch(':idLiquidacion/pagar')
-  marcarPagada(
-    @Param('idLiquidacion', ParseIntPipe) idLiquidacion: number,
-    @Body() dto: RegistrarTransferenciaDto,
+  @Post('generar/:idCuota')
+  generarPorCuota(
+    @Param('idCuota', ParseIntPipe) idCuota: number,
   ) {
-    return this.service.marcarPagada(idLiquidacion, dto);
+    return this.service.generarPorCuota(idCuota);
   }
 
-  // Registrar o reemplazar la cuenta activa de un profesor.
-  @Post(':idProfesor/cuenta-cobro')
+  @Get()
+  obtenerTodas() {
+    return this.service.obtenerTodas();
+  }
+
+  @Get('resumen')
+  obtenerResumen() {
+    return this.service.obtenerResumen();
+  }
+
+  @Get('profesor/:idProfesor')
+  obtenerPorProfesor(
+    @Param('idProfesor', ParseIntPipe) idProfesor: number,
+  ) {
+    return this.service.obtenerPorProfesor(idProfesor);
+  }
+
+  @Get('profesor/:idProfesor/cuenta')
+  obtenerCuentaActivaPorProfesor(
+    @Param('idProfesor', ParseIntPipe) idProfesor: number,
+  ) {
+    return this.service.obtenerCuentaActivaPorProfesor(
+      idProfesor,
+    );
+  }
+
+  @Post('profesor/:idProfesor/cuenta')
   guardarCuentaCobro(
     @Param('idProfesor', ParseIntPipe) idProfesor: number,
     @Body() dto: RegistrarCuentaCobroDto,
   ) {
-    return this.service.guardarCuentaCobro(idProfesor, dto);
+    return this.service.guardarCuentaCobro(
+      idProfesor,
+      dto,
+    );
   }
 
-  // Consultar la cuenta activa de un profesor.
-  @Get(':idProfesor/cuenta-cobro')
+  @Get('profesor/:idProfesor/cuenta-cobro')
   obtenerCuentaCobro(
     @Param('idProfesor', ParseIntPipe) idProfesor: number,
   ) {
     return this.service.obtenerCuentaCobro(idProfesor);
   }
 
-  // Consultar el historial de transferencias de una liquidación.
-  @Get(':idLiquidacion/historial')
-  obtenerHistorial(
-    @Param('idLiquidacion', ParseIntPipe) idLiquidacion: number,
+  @Get('cuota/:idCuota')
+  obtenerPorCuota(
+    @Param('idCuota', ParseIntPipe) idCuota: number,
   ) {
-    return this.service.obtenerHistorialTransferencias(
-      idLiquidacion,
-    );
+    return this.service.obtenerPorCuota(idCuota);
+  }
+
+  @Get(':idLiquidacion')
+  obtenerPorId(
+    @Param('idLiquidacion', ParseIntPipe) id: number,
+  ) {
+    return this.service.obtenerPorId(id);
+  }
+
+  @Get(':idLiquidacion/transferencias')
+  obtenerHistorialTransferencias(
+    @Param('idLiquidacion', ParseIntPipe) id: number,
+  ) {
+    return this.service.obtenerHistorialTransferencias(id);
+  }
+
+  @Patch(':idLiquidacion/pagar')
+  marcarPagada(
+    @Param('idLiquidacion', ParseIntPipe) id: number,
+    @Body() dto: RegistrarTransferenciaDto,
+  ) {
+    return this.service.marcarPagada(id, dto);
+  }
+
+  @Patch(':idLiquidacion/anular')
+  anular(
+    @Param('idLiquidacion', ParseIntPipe) id: number,
+  ) {
+    return this.service.anular(id);
   }
 }
